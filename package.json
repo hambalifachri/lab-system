@@ -1,12 +1,14 @@
 {
   "name": "lab-system",
   "version": "1.0.0",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "netlify dev",
+    "build": "echo \"No build needed\""
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.1",
-    "express": "^4.18.3"
+    "@supabase/supabase-js": "^2.49.1"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.38.1"
   }
 }
