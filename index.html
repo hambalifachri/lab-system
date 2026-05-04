@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login Lab</title>
+
+  <style>
+    /* ================= BODY ================= */
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+      margin-top: 100px;
+    }
+
+    /* ================= INPUT ================= */
+    input {
+      padding: 12px;
+      margin: 10px;
+      width: 250px;
+      border-radius: 8px;
+      border: none;
+    }
+
+    /* ================= BUTTON ================= */
+    button {
+      padding: 12px 25px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    button:hover {
+      background: #2563eb;
+    }
+
+    /* ================= WARNING TEXT ================= */
+    .warning {
+      margin-top: 20px;
+      color: #f87171;
+      line-height: 1.5;
+    }
+
+    /* ================= LOGIN RESULT BOX ================= */
+    .box {
+      margin-top: 120px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ================= FORM LOGIN ================= -->
+  <h2>Login Lab Komputer</h2>
+
+  <input id="nim" placeholder="Masukkan NIM"><br>
+
+  <button onclick="login()">Masuk</button>
+
+  <!-- ================= PERINGATAN ================= -->
+  <div class="warning">
+    Setiap penggunaan komputer akan tercatat.<br>
+    Segala bentuk penyalahgunaan identitas menjadi tanggung jawab pribadi.<br><br>
+
+    Seluruh aktivitas dan kondisi fasilitas komputer, meja, bangku, dan ruangan akan diawasi dan dicatat.<br>
+    Pengguna bertanggung jawab atas segala kerusakan yang terjadi selama penggunaan.<br><br>
+
+    Dilarang meninggalkan sampah di area laboratorium.<br>
+    Jagalah kebersihan dan kerapihan setelah digunakan.
+  </div>
+
+  <script>
+    // ================= DATA USER SAAT LOGIN =================
+    let currentUser = null;
+
+    // ================= LOGIN =================
+    function login() {
+      const nim = document.getElementById("nim").value.trim();
+
+      if (nim === "") {
+        alert("NIM wajib diisi");
+        return;
+      }
+
+      fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nim: nim })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          currentUser = {
+            nim: data.nim,
+            nama: data.nama
+          };
+
+          document.body.innerHTML = `
+            <div class="box">
+              <h1>${data.nama}</h1>
+              <h2>${data.nim}</h2>
+              <p>Login berhasil</p>
+              <button onclick="logout()">Logout</button>
+            </div>
+          `;
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(err => {
+        console.log("ERROR LOGIN:", err);
+        alert("Gagal login");
+      });
+    }
+
+    // ================= LOGOUT =================
+    function logout() {
+      if (!currentUser) {
+        location.reload();
+        return;
+      }
+
+      fetch('/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nim: currentUser.nim,
+          nama: currentUser.nama
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          location.reload();
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(err => {
+        console.log("ERROR LOGOUT:", err);
+        alert("Gagal logout");
+      });
+    }
+  </script>
+
+</body>
+</html>
