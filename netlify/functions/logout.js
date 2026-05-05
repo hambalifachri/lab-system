@@ -4,16 +4,13 @@ const { createClient } = require('@supabase/supabase-js');
 // ================= SETUP SUPABASE =================
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ================= RESPONSE HELPER =================
 function response(statusCode, data) {
   return {
     statusCode: statusCode,
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   };
 }
@@ -46,10 +43,19 @@ exports.handler = async function(event) {
       });
     }
 
+    const inputNim = nim.toString().trim();
+
+    // ================= HAPUS SESSION AKTIF =================
+    await supabase
+      .from('active_sessions')
+      .delete()
+      .eq('nim', inputNim);
+
+    // ================= SIMPAN LOG LOGOUT =================
     await supabase
       .from('login_logs')
       .insert({
-        nim: nim.toString().trim(),
+        nim: inputNim,
         nama: nama || "",
         aksi: "logout"
       });
