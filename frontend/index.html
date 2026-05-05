@@ -210,7 +210,14 @@
 
     <div class="form-group">
       <label for="nim">Nomor Induk Mahasiswa</label>
-      <input id="nim" placeholder="Contoh: 41813110065" autocomplete="off">
+      <input
+            id="nim"
+            placeholder="Contoh: 41813110065"
+            autocomplete="off"
+            inputmode="numeric"
+            maxlength="11"
+            oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)"
+      >
     </div>
 
     <button onclick="login()">Masuk</button>
@@ -238,6 +245,11 @@
         return;
       }
 
+      if (!/^[0-9]{11}$/.test(nim)) {
+        alert("NIM harus terdiri dari 11 digit angka");
+        return;
+      }
+      
       fetch('/.netlify/functions/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
