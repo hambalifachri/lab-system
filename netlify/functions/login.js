@@ -4,16 +4,13 @@ const { createClient } = require('@supabase/supabase-js');
 // ================= SETUP SUPABASE =================
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ================= RESPONSE HELPER =================
 function response(statusCode, data) {
   return {
     statusCode: statusCode,
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   };
 }
@@ -47,13 +44,14 @@ exports.handler = async function(event) {
 
     const inputNim = nim.toString().trim();
 
-    const { data: student, error } = await supabase
+    // ================= CEK NIM DI DATABASE =================
+    const { data: student, error: studentError } = await supabase
       .from('students')
       .select('nim, nama, aktif')
       .eq('nim', inputNim)
       .single();
 
-    if (error || !student) {
+    if (studentError || !student) {
       return response(404, {
         status: "error",
         message: "NIM tidak terdaftar"
@@ -67,6 +65,36 @@ exports.handler = async function(event) {
       });
     }
 
+    // ================= CEK APAKAH SUDAH LOGIN =================
+    const { data: activeSession } = await supabase
+      .from('active_sessions')
+      .select('nim')
+      .eq('nim', inputNim)
+      .maybeSingle();
+
+    if (activeSession) {
+      return response(409, {
+        status: "error",
+        message: "NIM ini sedang digunakan / masih login di perangkat lain"
+      });
+    }
+
+    // ================= SIMPAN SESSION AKTIF =================
+    const { error: sessionError } = await supabase
+      .from('active_sessions')
+      .insert({
+        nim: student.nim,
+        nama: student.nama
+      });
+
+    if (sessionError) {
+      return response(409, {
+        status: "error",
+        message: "NIM ini sedang digunakan / masih login di perangkat lain"
+      });
+    }
+
+    // ================= SIMPAN LOG LOGIN =================
     await supabase
       .from('login_logs')
       .insert({
