@@ -2,14 +2,15 @@
 const { createClient } = require('@supabase/supabase-js');
 
 // ================= SETUP SUPABASE =================
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // ================= RESPONSE HELPER =================
 function response(statusCode, data) {
   return {
-    statusCode: statusCode,
+    statusCode,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   };
@@ -18,37 +19,28 @@ function response(statusCode, data) {
 // ================= LOGIN FUNCTION =================
 exports.handler = async function(event) {
   if (event.httpMethod !== "POST") {
-    return response(405, {
-      status: "error",
-      message: "Method tidak diizinkan"
-    });
-  }
-
-  if (!supabaseUrl || !supabaseKey) {
-    return response(500, {
-      status: "error",
-      message: "Environment Supabase belum diisi"
-    });
+    return response(405, { status: "error", message: "Method tidak diizinkan" });
   }
 
   try {
     const body = JSON.parse(event.body || "{}");
-    const nim = body.nim;
 
-    if (!nim || nim.toString().trim() === "") {
+    const nim = body.nim ? body.nim.toString().trim() : "";
+    const computerName = body.computer_name || "WEB";
+    const deviceId = body.device_id || `WEB-${nim}`;
+
+    if (!/^[0-9]{11}$/.test(nim)) {
       return response(400, {
         status: "error",
-        message: "NIM wajib diisi"
+        message: "NIM harus 11 digit angka"
       });
     }
 
-    const inputNim = nim.toString().trim();
-
-    // ================= CEK NIM DI DATABASE =================
+    // ================= CEK MAHASISWA =================
     const { data: student, error: studentError } = await supabase
       .from('students')
       .select('nim, nama, aktif')
-      .eq('nim', inputNim)
+      .eq('nim', nim)
       .single();
 
     if (studentError || !student) {
@@ -65,34 +57,57 @@ exports.handler = async function(event) {
       });
     }
 
-    // ================= CEK APAKAH SUDAH LOGIN =================
-    const { data: activeSession } = await supabase
+    // ================= CEK NIM SUDAH LOGIN =================
+    const { data: activeNim } = await supabase
       .from('active_sessions')
-      .select('nim')
-      .eq('nim', inputNim)
+      .select('nim, computer_name')
+      .eq('nim', nim)
       .maybeSingle();
 
-    if (activeSession) {
+    if (activeNim) {
       return response(409, {
         status: "error",
-        message: "NIM ini sedang digunakan / masih login di perangkat lain"
+        message: `NIM ini masih login di ${activeNim.computer_name}`
       });
     }
 
+    // ================= CEK PC SEDANG DIPAKAI =================
+    const { data: activeDevice } = await supabase
+      .from('active_sessions')
+      .select('nim, student_name')
+      .eq('device_id', deviceId)
+      .maybeSingle();
+
+    if (activeDevice) {
+      return response(409, {
+        status: "error",
+        message: `PC ini masih dipakai oleh ${activeDevice.student_name}`
+      });
+    }
+
+    // ================= REGISTER / UPDATE PC =================
+    await supabase
+      .from('lab_computers')
+      .upsert({
+        computer_name: computerName,
+        device_id: deviceId,
+        last_seen: new Date().toISOString(),
+        status: "online"
+      }, {
+        onConflict: "device_id"
+      });
+
     // ================= SIMPAN SESSION AKTIF =================
-    const { error: sessionError } = await supabase
+    await supabase
       .from('active_sessions')
       .insert({
         nim: student.nim,
-        nama: student.nama
+        student_name: student.nama,
+        computer_name: computerName,
+        device_id: deviceId,
+        status: "active",
+        last_seen: new Date().toISOString()
       });
-
-    if (sessionError) {
-      return response(409, {
-        status: "error",
-        message: "NIM ini sedang digunakan / masih login di perangkat lain"
-      });
-    }
 
     // ================= SIMPAN LOG LOGIN =================
     await supabase
@@ -100,13 +115,17 @@ exports.handler = async function(event) {
       .insert({
         nim: student.nim,
         nama: student.nama,
-        aksi: "login"
+        aksi: "login",
+        computer_name: computerName,
+        device_id: deviceId
       });
 
     return response(200, {
       status: "success",
       nim: student.nim,
-      nama: student.nama
+      nama: student.nama,
+      computer_name: computerName,
+      device_id: deviceId
     });
 
   } catch (error) {
