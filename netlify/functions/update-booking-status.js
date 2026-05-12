@@ -16,12 +16,25 @@ function response(statusCode, data) {
   };
 }
 
+// ================= ADMIN AUTH HELPER =================
+function isAdmin(event) {
+  const token = event.headers['x-admin-token'];
+  return token && token === process.env.ADMIN_TOKEN;
+}
+
 // ================= UPDATE BOOKING STATUS FUNCTION =================
 exports.handler = async function(event) {
   if (event.httpMethod !== "POST") {
     return response(405, {
       status: "error",
       message: "Method tidak diizinkan"
+    });
+  }
+
+  if (!isAdmin(event)) {
+    return response(401, {
+      status: "error",
+      message: "Akses admin ditolak"
     });
   }
 
@@ -42,7 +55,7 @@ exports.handler = async function(event) {
     const { error } = await supabase
       .from('lab_bookings')
       .update({
-        status,
+        status: status,
         admin_note: adminNote
       })
       .eq('id', id);

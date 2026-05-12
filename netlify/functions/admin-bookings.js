@@ -16,12 +16,25 @@ function response(statusCode, data) {
   };
 }
 
+// ================= ADMIN AUTH HELPER =================
+function isAdmin(event) {
+  const token = event.headers['x-admin-token'];
+  return token && token === process.env.ADMIN_TOKEN;
+}
+
 // ================= ADMIN BOOKINGS FUNCTION =================
 exports.handler = async function(event) {
   if (event.httpMethod !== "GET") {
     return response(405, {
       status: "error",
       message: "Method tidak diizinkan"
+    });
+  }
+
+  if (!isAdmin(event)) {
+    return response(401, {
+      status: "error",
+      message: "Akses admin ditolak"
     });
   }
 
@@ -40,7 +53,7 @@ exports.handler = async function(event) {
 
     return response(200, {
       status: "success",
-      data
+      data: data
     });
 
   } catch (error) {
