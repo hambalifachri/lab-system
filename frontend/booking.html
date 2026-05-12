@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ajukan Peminjaman Lab</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      padding: 28px;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    .card {
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      background: #111827;
+      padding: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #e2e8f0;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 13px 14px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: white;
+      font-size: 14px;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    button,
+    a {
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    a.secondary {
+      background: #334155;
+    }
+
+    .note {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 8px;
+      background: rgba(37, 99, 235, 0.15);
+      color: #bfdbfe;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 18px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="wrap">
+    <div class="header">
+      <h1>Ajukan Peminjaman Lab</h1>
+      <div class="subtitle">Peminjaman hanya untuk dosen dan staff. Jam operasional 08:00 - 16:00.</div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label>Ruangan</label>
+          <select id="room_id">
+            <option value="1">Lab 1</option>
+            <option value="2">Lab 2</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Tanggal</label>
+          <input id="booking_date" type="date">
+        </div>
+
+        <div>
+          <label>Jam Mulai</label>
+          <input id="start_time" type="time" min="08:00" max="16:00">
+        </div>
+
+        <div>
+          <label>Jam Selesai</label>
+          <input id="end_time" type="time" min="08:00" max="16:00">
+        </div>
+
+        <div>
+          <label>Nama Peminjam</label>
+          <input id="borrower_name" placeholder="Nama dosen/staff">
+        </div>
+
+        <div>
+          <label>Role</label>
+          <select id="borrower_role">
+            <option value="Dosen">Dosen</option>
+            <option value="Staff">Staff</option>
+          </select>
+        </div>
+
+        <div class="full">
+          <label>Kontak</label>
+          <input id="borrower_contact" placeholder="Nomor HP / email">
+        </div>
+
+        <div class="full">
+          <label>Keperluan</label>
+          <textarea id="purpose" placeholder="Contoh: Praktikum tambahan, pelatihan, ujian, workshop"></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button onclick="submitBooking()">Kirim Pengajuan</button>
+        <a class="secondary" href="/schedule.html">Lihat Jadwal</a>
+      </div>
+
+      <div class="note">
+        Pengajuan akan masuk sebagai pending dan harus disetujui admin sebelum tampil sebagai jadwal peminjaman.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function submitBooking() {
+      const data = {
+        room_id: Number(document.getElementById("room_id").value),
+        booking_date: document.getElementById("booking_date").value,
+        start_time: document.getElementById("start_time").value,
+        end_time: document.getElementById("end_time").value,
+        borrower_name: document.getElementById("borrower_name").value.trim(),
+        borrower_role: document.getElementById("borrower_role").value,
+        borrower_contact: document.getElementById("borrower_contact").value.trim(),
+        purpose: document.getElementById("purpose").value.trim()
+      };
+
+      fetch('/.netlify/functions/create-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(result => {
+        alert(result.message);
+
+        if (result.status === "success") {
+          location.href = "/schedule.html";
+        }
+      })
+      .catch(() => {
+        alert("Gagal koneksi ke server");
+      });
+    }
+  </script>
+
+</body>
+</html>
