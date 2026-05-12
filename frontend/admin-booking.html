@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Booking Lab</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      padding: 28px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .nav a,
+    button {
+      padding: 10px 13px;
+      border-radius: 8px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .nav a.secondary,
+    button.secondary {
+      background: #334155;
+    }
+
+    button.approve { background: #16a34a; }
+    button.reject { background: #dc2626; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      background: #111827;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1050px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid #1e293b;
+      text-align: left;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    th {
+      background: #020617;
+      color: #cbd5e1;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .pending {
+      background: rgba(234, 179, 8, 0.2);
+      color: #fde68a;
+    }
+
+    .approved {
+      background: rgba(22, 163, 74, 0.2);
+      color: #86efac;
+    }
+
+    .rejected {
+      background: rgba(220, 38, 38, 0.2);
+      color: #fca5a5;
+    }
+
+    .cancelled {
+      background: rgba(100, 116, 139, 0.2);
+      color: #cbd5e1;
+    }
+
+    .empty {
+      padding: 36px;
+      text-align: center;
+      color: #94a3b8;
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 18px; }
+      .header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <div>
+      <h1>Admin Booking Lab</h1>
+      <div class="subtitle">Kelola pengajuan peminjaman lab.</div>
+    </div>
+
+    <div class="nav">
+      <a href="/schedule.html">Jadwal</a>
+      <a class="secondary" href="/booking.html">Form Peminjaman</a>
+      <button class="secondary" onclick="loadBookings()">Refresh</button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Lab</th>
+          <th>Jam</th>
+          <th>Peminjam</th>
+          <th>Kontak</th>
+          <th>Keperluan</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+
+      <tbody id="bookingBody">
+        <tr>
+          <td colspan="8" class="empty">Memuat data...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function formatDate(value) {
+      if (!value) return "-";
+
+      const date = new Date(value + "T00:00:00");
+
+      return date.toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+      });
+    }
+
+    function formatTime(value) {
+      if (!value) return "-";
+      return value.slice(0, 5);
+    }
+
+    function updateStatus(id, status) {
+      const note = status === "rejected" ? prompt("Catatan penolakan:", "") || "" : "";
+
+      fetch('/.netlify/functions/update-booking-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: id,
+          status: status,
+          admin_note: note
+        })
+      })
+      .then(res => res.json())
+      .then(result => {
+        alert(result.message);
+        loadBookings();
+      })
+      .catch(() => {
+        alert("Gagal koneksi ke server");
+      });
+    }
+
+    function renderActions(row) {
+      if (row.status !== "pending") {
+        return "-";
+      }
+
+      return `
+        <button class="approve" onclick="updateStatus(${row.id}, 'approved')">Approve</button>
+        <button class="reject" onclick="updateStatus(${row.id}, 'rejected')">Reject</button>
+      `;
+    }
+
+    function loadBookings() {
+      const tbody = document.getElementById("bookingBody");
+
+      fetch('/.netlify/functions/admin-bookings')
+        .then(res => res.json())
+        .then(result => {
+          if (result.status !== "success") {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty">Gagal mengambil data</td></tr>`;
+            return;
+          }
+
+          const rows = result.data || [];
+
+          if (!rows.length) {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty">Belum ada pengajuan</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = rows.map(row => `
+            <tr>
+              <td>${formatDate(row.booking_date)}</td>
+              <td>${row.room_name}</td>
+              <td>${formatTime(row.start_time)} - ${formatTime(row.end_time)}</td>
+              <td>${row.borrower_name}<br><span class="badge ${row.status}">${row.borrower_role}</span></td>
+              <td>${row.borrower_contact || "-"}</td>
+              <td>${row.purpose}</td>
+              <td><span class="badge ${row.status}">${row.status}</span></td>
+              <td>${renderActions(row)}</td>
+            </tr>
+          `).join("");
+        })
+        .catch(() => {
+          tbody.innerHTML = `<tr><td colspan="8" class="empty">Gagal koneksi server</td></tr>`;
+        });
+    }
+
+    loadBookings();
+  </script>
+
+</body>
+</html>
