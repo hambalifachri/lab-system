@@ -7,6 +7,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+function isLabComputer(name) {
+  return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
+}
+
 // ================= RESPONSE HELPER =================
 function response(statusCode, data) {
   return {
@@ -33,6 +37,13 @@ exports.handler = async function(event) {
       return response(400, {
         status: "error",
         message: "Device ID tidak ditemukan"
+      });
+    }
+
+    if (!isLabComputer(computerName) || computerName !== deviceId) {
+      return response(400, {
+        status: "error",
+        message: "PC lab tidak valid"
       });
     }
 
