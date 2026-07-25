@@ -235,6 +235,29 @@
   <script>
     // ================= DATA USER SAAT LOGIN =================
     let currentUser = null;
+    let heartbeatTimer = null;
+
+    // AutoHotkey membuka halaman ini dengan ?pc=SIPIL-01. Nama PC tidak
+    // boleh diisi manual agar satu sesi selalu tercatat pada PC yang benar.
+    const pcName = new URLSearchParams(window.location.search).get("pc") || "";
+
+    function isLabComputer(name) {
+      return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name);
+    }
+
+    function sendHeartbeat() {
+      if (!currentUser || !isLabComputer(pcName)) return;
+
+      fetch('/.netlify/functions/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nim: currentUser.nim,
+          computer_name: pcName,
+          device_id: pcName
+        })
+      }).catch(() => {});
+    }
 
     // ================= LOGIN =================
     function login() {
@@ -249,19 +272,33 @@
         alert("NIM harus terdiri dari 11 digit angka");
         return;
       }
+
+      if (!isLabComputer(pcName)) {
+        alert("PC lab tidak terdaftar. Buka halaman melalui aplikasi login lab.");
+        return;
+      }
       
       fetch('/.netlify/functions/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nim: nim })
+        body: JSON.stringify({
+          nim: nim,
+          computer_name: pcName,
+          device_id: pcName
+        })
       })
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") {
           currentUser = {
             nim: data.nim,
-            nama: data.nama
+            nama: data.nama,
+            computerName: data.computer_name,
+            deviceId: data.device_id
           };
+
+          sendHeartbeat();
+          heartbeatTimer = setInterval(sendHeartbeat, 30000);
 
           document.getElementById("app").innerHTML = `
             <div class="success-card">
@@ -294,12 +331,15 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nim: currentUser.nim,
-          nama: currentUser.nama
+          nama: currentUser.nama,
+          computer_name: currentUser.computerName,
+          device_id: currentUser.deviceId
         })
       })
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") {
+          clearInterval(heartbeatTimer);
           location.reload();
         } else {
           alert(data.message);
