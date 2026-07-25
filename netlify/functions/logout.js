@@ -25,10 +25,27 @@ exports.handler = async function(event) {
   try {
     const body = JSON.parse(event.body || "{}");
 
-    const nim = body.nim ? body.nim.toString().trim() : "";
-    const nama = body.nama || "";
+    let nim = body.nim ? body.nim.toString().trim() : "";
+    let nama = body.nama || "";
     const computerName = body.computer_name || "";
     const deviceId = body.device_id || "";
+
+    // Dipakai oleh shortcut PC lab saat browser sudah telanjur ditutup.
+    // Hanya hapus sesi yang memang sedang aktif pada device tersebut.
+    if (!nim && body.force_device === true && deviceId) {
+      const { data: activeSession } = await supabase
+        .from('active_sessions')
+        .select('nim, student_name, computer_name')
+        .eq('device_id', deviceId)
+        .maybeSingle();
+
+      if (!activeSession) {
+        return response(200, { status: "success", message: "Tidak ada sesi aktif" });
+      }
+
+      nim = activeSession.nim;
+      nama = activeSession.student_name || "";
+    }
 
     if (!nim) {
       return response(400, {
