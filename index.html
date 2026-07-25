@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login Lab Komputer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    /* ================= RESET ================= */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background:
+        linear-gradient(rgba(15, 23, 42, 0.86), rgba(15, 23, 42, 0.92)),
+        url("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1600&q=80");
+      background-size: cover;
+      background-position: center;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* ================= CONTAINER ================= */
+    .container {
+      width: 100%;
+      max-width: 430px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 16px;
+      padding: 34px 30px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(10px);
+    }
+
+    /* ================= HEADER ================= */
+    .logo {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 18px;
+      border-radius: 14px;
+      background: #2563eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: bold;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin: 10px 0 28px;
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    /* ================= FORM ================= */
+    .form-group {
+      text-align: left;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #e2e8f0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 15px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.38);
+      background: rgba(15, 23, 42, 0.72);
+      color: #ffffff;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.22);
+    }
+
+    input::placeholder {
+      color: #94a3b8;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px 18px;
+      margin-top: 4px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    /* ================= WARNING ================= */
+    .warning {
+      margin-top: 24px;
+      padding: 16px;
+      border-radius: 12px;
+      background: rgba(127, 29, 29, 0.22);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      color: #fecaca;
+      font-size: 13px;
+      line-height: 1.55;
+      text-align: left;
+    }
+
+    /* ================= SUCCESS VIEW ================= */
+    .success-card {
+      text-align: center;
+    }
+
+    .success-badge {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 18px;
+      border-radius: 50%;
+      background: #16a34a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      font-weight: bold;
+    }
+
+    .success-card h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .success-card h2 {
+      margin: 0 0 12px;
+      color: #cbd5e1;
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .success-card p {
+      margin-bottom: 24px;
+      color: #86efac;
+    }
+
+    .logout-btn {
+      background: #dc2626;
+    }
+
+    .logout-btn:hover {
+      background: #b91c1c;
+    }
+
+    /* ================= MOBILE ================= */
+    @media (max-width: 480px) {
+      body {
+        padding: 18px;
+      }
+
+      .container {
+        padding: 28px 22px;
+      }
+
+      h2 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ================= LOGIN CARD ================= -->
+  <div class="container" id="app">
+    <div class="logo">L</div>
+
+    <h2>Login Lab Komputer</h2>
+    <div class="subtitle">
+      Masukkan NIM untuk mengakses fasilitas laboratorium.
+    </div>
+
+    <div class="form-group">
+      <label for="nim">Nomor Induk Mahasiswa</label>
+      <input
+            id="nim"
+            placeholder="Contoh: 41813110065"
+            autocomplete="off"
+            inputmode="numeric"
+            maxlength="11"
+            oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)"
+      >
+    </div>
+
+    <button onclick="login()">Masuk</button>
+
+    <div class="warning">
+      Setiap penggunaan komputer akan tercatat.<br>
+      Segala bentuk penyalahgunaan identitas menjadi tanggung jawab pribadi.<br><br>
+      Seluruh aktivitas dan kondisi fasilitas komputer, meja, bangku, dan ruangan akan diawasi dan dicatat.<br>
+      Pengguna bertanggung jawab atas segala kerusakan yang terjadi selama penggunaan.<br><br>
+      Dilarang meninggalkan sampah di area laboratorium.<br>
+      Jagalah kebersihan dan kerapihan setelah digunakan.
+    </div>
+  </div>
+
+  <script>
+    // ================= DATA USER SAAT LOGIN =================
+    let currentUser = null;
+    let heartbeatTimer = null;
+
+    // AutoHotkey membuka halaman ini dengan ?pc=SIPIL-01. Nama PC tidak
+    // boleh diisi manual agar satu sesi selalu tercatat pada PC yang benar.
+    const pcName = new URLSearchParams(window.location.search).get("pc") || "";
+
+    function isLabComputer(name) {
+      return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name);
+    }
+
+    function sendHeartbeat() {
+      if (!currentUser || !isLabComputer(pcName)) return;
+
+      fetch('/.netlify/functions/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nim: currentUser.nim,
+          computer_name: pcName,
+          device_id: pcName
+        })
+      }).catch(() => {});
+    }
+
+    // ================= LOGIN =================
+    function login() {
+      const nim = document.getElementById("nim").value.trim();
+
+      if (nim === "") {
+        alert("NIM wajib diisi");
+        return;
+      }
+
+      if (!/^[0-9]{11}$/.test(nim)) {
+        alert("NIM harus terdiri dari 11 digit angka");
+        return;
+      }
+
+      if (!isLabComputer(pcName)) {
+        alert("PC lab tidak terdaftar. Buka halaman melalui aplikasi login lab.");
+        return;
+      }
+      
+      fetch('/.netlify/functions/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nim: nim,
+          computer_name: pcName,
+          device_id: pcName
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          currentUser = {
+            nim: data.nim,
+            nama: data.nama,
+            computerName: data.computer_name,
+            deviceId: data.device_id
+          };
+
+          sendHeartbeat();
+          heartbeatTimer = setInterval(sendHeartbeat, 30000);
+
+          document.getElementById("app").innerHTML = `
+            <div class="success-card">
+              <div class="success-badge">✓</div>
+              <h1>${data.nama}</h1>
+              <h2>${data.nim}</h2>
+              <p>Login berhasil</p>
+              <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+          `;
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(err => {
+        console.log("ERROR LOGIN:", err);
+        alert("Gagal login");
+      });
+    }
+
+    // ================= LOGOUT =================
+    function logout() {
+      if (!currentUser) {
+        location.reload();
+        return;
+      }
+
+      fetch('/.netlify/functions/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nim: currentUser.nim,
+          nama: currentUser.nama,
+          computer_name: currentUser.computerName,
+          device_id: currentUser.deviceId
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          clearInterval(heartbeatTimer);
+          location.reload();
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(err => {
+        console.log("ERROR LOGOUT:", err);
+        alert("Gagal logout");
+      });
+    }
+  </script>
+
+</body>
+</html>
