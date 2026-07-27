@@ -31,33 +31,20 @@ exports.handler = async function(event) {
     const deviceId = body.device_id || "";
 
     // Dipakai oleh shortcut PC lab saat browser sudah telanjur ditutup.
-    // Hanya hapus sesi yang memang sedang aktif pada device tersebut.
+    // Hapus langsung berdasarkan device dan nama komputer; ini juga menangani
+    // sesi lama, data ganda, atau sesi yang belum memiliki device_id.
     if (!nim && body.force_device === true && deviceId) {
-      const currentSession = await supabase
-        .from('active_sessions')
-        .select('nim, student_name, computer_name')
-        .eq('device_id', deviceId)
-        .limit(1);
+      const byDevice = await supabase.from('active_sessions').delete().eq('device_id', deviceId);
+      const byComputer = await supabase.from('active_sessions').delete().eq('computer_name', deviceId);
+      if (byDevice.error) throw byDevice.error;
+      if (byComputer.error) throw byComputer.error;
 
-      if (currentSession.error) throw currentSession.error;
+      await supabase
+        .from('lab_computers')
+        .update({ last_seen: new Date().toISOString(), status: "online" })
+        .eq('device_id', deviceId);
 
-      let activeSession = currentSession.data?.[0];
-      if (!activeSession) {
-        const legacySession = await supabase
-          .from('active_sessions')
-          .select('nim, student_name, computer_name')
-          .eq('computer_name', deviceId)
-          .limit(1);
-        if (legacySession.error) throw legacySession.error;
-        activeSession = legacySession.data?.[0];
-      }
-
-      if (!activeSession) {
-        return response(200, { status: "success", message: "Tidak ada sesi aktif" });
-      }
-
-      nim = activeSession.nim;
-      nama = activeSession.student_name || "";
+      return response(200, { status: "success", message: "Logout berhasil" });
     }
 
     if (!nim) {
