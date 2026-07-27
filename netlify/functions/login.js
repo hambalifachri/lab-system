@@ -115,6 +115,7 @@ exports.handler = async function(event) {
       });
 
     // ================= SIMPAN SESSION AKTIF =================
+    const sessionStartedAt = new Date().toISOString();
     await supabase
       .from('active_sessions')
       .insert({
@@ -122,8 +123,9 @@ exports.handler = async function(event) {
         student_name: student.nama,
         computer_name: computerName,
         device_id: deviceId,
-        status: "active",
-        last_seen: new Date().toISOString()
+        // Menyimpan awal sesi tanpa perlu perubahan skema database.
+        status: `active:${sessionStartedAt}`,
+        last_seen: sessionStartedAt
       });
 
     // ================= SIMPAN LOG LOGIN =================

@@ -6,6 +6,7 @@ const supabase = createClient(
 );
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
 
 function response(statusCode, data) {
   return {
@@ -17,6 +18,14 @@ function response(statusCode, data) {
 
 function isLabComputer(name) {
   return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
+}
+
+function sessionStartedAt(session) {
+  const marker = session?.status || "";
+  const value = marker.startsWith("active:")
+    ? new Date(marker.slice(7)).getTime()
+    : new Date(session?.last_seen || 0).getTime();
+  return Number.isFinite(value) ? value : 0;
 }
 
 // Endpoint ini sengaja hanya mengembalikan boolean. AutoHotkey memakainya
@@ -34,14 +43,18 @@ exports.handler = async function(event) {
   try {
     const { data: session, error } = await supabase
       .from('active_sessions')
-      .select('last_seen')
+      .select('last_seen, status')
       .eq('device_id', deviceId)
       .maybeSingle();
 
     if (error) throw error;
 
     const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
-    const loggedIn = Boolean(lastSeen && Date.now() - lastSeen < SESSION_TIMEOUT_MS);
+    const expired = session && Date.now() - sessionStartedAt(session) >= SESSION_MAX_MS;
+    if (expired) {
+      await supabase.from('active_sessions').delete().eq('device_id', deviceId);
+    }
+    const loggedIn = Boolean(!expired && lastSeen && Date.now() - lastSeen < SESSION_TIMEOUT_MS);
 
     return response(200, { status: "success", logged_in: loggedIn });
   } catch (error) {

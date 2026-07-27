@@ -64,8 +64,7 @@ exports.handler = async function(event) {
       await supabase
         .from('active_sessions')
         .update({
-          last_seen: new Date().toISOString(),
-          status: "active"
+          last_seen: new Date().toISOString()
         })
         .eq('nim', nim)
         .eq('device_id', deviceId);

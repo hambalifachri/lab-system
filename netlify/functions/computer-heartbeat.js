@@ -6,6 +6,7 @@ const supabase = createClient(
 );
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
 
 function response(statusCode, data) {
   return {
@@ -17,6 +18,14 @@ function response(statusCode, data) {
 
 function isLabComputer(name) {
   return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
+}
+
+function sessionStartedAt(session) {
+  const marker = session?.status || "";
+  const value = marker.startsWith("active:")
+    ? new Date(marker.slice(7)).getTime()
+    : new Date(session?.last_seen || 0).getTime();
+  return Number.isFinite(value) ? value : 0;
 }
 
 // Dipanggil oleh AutoHotkey, bukan browser. Endpoint hanya memperpanjang sesi
@@ -35,20 +44,24 @@ exports.handler = async function(event) {
   try {
     const { data: session, error } = await supabase
       .from('active_sessions')
-      .select('last_seen')
+      .select('last_seen, status')
       .eq('device_id', deviceId)
       .maybeSingle();
 
     if (error) throw error;
 
     const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
+    if (session && Date.now() - sessionStartedAt(session) >= SESSION_MAX_MS) {
+      await supabase.from('active_sessions').delete().eq('device_id', deviceId);
+      return response(200, { status: "success", logged_in: false });
+    }
     if (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS) {
       return response(200, { status: "success", logged_in: false });
     }
 
     const now = new Date().toISOString();
     await supabase.from('active_sessions')
-      .update({ last_seen: now, status: "active" })
+      .update({ last_seen: now })
       .eq('device_id', deviceId);
     await supabase.from('lab_computers')
       .update({ last_seen: now, status: "online" })
