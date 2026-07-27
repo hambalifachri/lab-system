@@ -33,13 +33,24 @@ exports.handler = async function(event) {
     // Dipakai oleh shortcut PC lab saat browser sudah telanjur ditutup.
     // Hanya hapus sesi yang memang sedang aktif pada device tersebut.
     if (!nim && body.force_device === true && deviceId) {
-      const { data: activeSession } = await supabase
+      const currentSession = await supabase
         .from('active_sessions')
         .select('nim, student_name, computer_name')
-        // Sesi lama mungkin belum memiliki device_id, tetapi tetap memiliki
-        // computer_name. Keduanya harus dapat dihapus oleh tombol PC.
-        .or(`device_id.eq.${deviceId},computer_name.eq.${deviceId}`)
+        .eq('device_id', deviceId)
         .maybeSingle();
+
+      if (currentSession.error) throw currentSession.error;
+
+      let activeSession = currentSession.data;
+      if (!activeSession) {
+        const legacySession = await supabase
+          .from('active_sessions')
+          .select('nim, student_name, computer_name')
+          .eq('computer_name', deviceId)
+          .maybeSingle();
+        if (legacySession.error) throw legacySession.error;
+        activeSession = legacySession.data;
+      }
 
       if (!activeSession) {
         return response(200, { status: "success", message: "Tidak ada sesi aktif" });
