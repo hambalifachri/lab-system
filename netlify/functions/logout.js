@@ -37,19 +37,19 @@ exports.handler = async function(event) {
         .from('active_sessions')
         .select('nim, student_name, computer_name')
         .eq('device_id', deviceId)
-        .maybeSingle();
+        .limit(1);
 
       if (currentSession.error) throw currentSession.error;
 
-      let activeSession = currentSession.data;
+      let activeSession = currentSession.data?.[0];
       if (!activeSession) {
         const legacySession = await supabase
           .from('active_sessions')
           .select('nim, student_name, computer_name')
           .eq('computer_name', deviceId)
-          .maybeSingle();
+          .limit(1);
         if (legacySession.error) throw legacySession.error;
-        activeSession = legacySession.data;
+        activeSession = legacySession.data?.[0];
       }
 
       if (!activeSession) {
