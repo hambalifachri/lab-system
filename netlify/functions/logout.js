@@ -36,7 +36,9 @@ exports.handler = async function(event) {
       const { data: activeSession } = await supabase
         .from('active_sessions')
         .select('nim, student_name, computer_name')
-        .eq('device_id', deviceId)
+        // Sesi lama mungkin belum memiliki device_id, tetapi tetap memiliki
+        // computer_name. Keduanya harus dapat dihapus oleh tombol PC.
+        .or(`device_id.eq.${deviceId},computer_name.eq.${deviceId}`)
         .maybeSingle();
 
       if (!activeSession) {
