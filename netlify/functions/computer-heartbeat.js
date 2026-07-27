@@ -5,7 +5,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const SESSION_TIMEOUT_MS = 2 * 60 * 1000;
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 function response(statusCode, data) {
   return {

@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const SESSION_TIMEOUT_MS = 2 * 60 * 1000;
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 function isLabComputer(name) {
   return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
