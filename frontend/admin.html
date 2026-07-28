@@ -245,6 +245,7 @@
       }
 
       fetch('/.netlify/functions/admin-status', {
+        cache: 'no-store',
         headers: {
           'x-admin-token': adminToken
         }

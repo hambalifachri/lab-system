@@ -11,7 +11,7 @@ const supabase = createClient(
 function response(statusCode, data) {
   return {
     statusCode,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     body: JSON.stringify(data)
   };
 }

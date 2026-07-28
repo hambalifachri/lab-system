@@ -51,10 +51,11 @@ exports.handler = async function(event) {
 
     const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
     const expired = session && Date.now() - sessionStartedAt(session) >= SESSION_MAX_MS;
-    if (expired) {
+    const inactive = session && (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS);
+    if (expired || inactive) {
       await supabase.from('active_sessions').delete().eq('device_id', deviceId);
     }
-    const loggedIn = Boolean(!expired && lastSeen && Date.now() - lastSeen < SESSION_TIMEOUT_MS);
+    const loggedIn = Boolean(session && !expired && !inactive);
 
     return response(200, { status: "success", logged_in: loggedIn });
   } catch (error) {

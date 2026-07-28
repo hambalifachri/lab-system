@@ -56,6 +56,7 @@ exports.handler = async function(event) {
       return response(200, { status: "success", logged_in: false });
     }
     if (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS) {
+      await supabase.from('active_sessions').delete().eq('device_id', deviceId);
       return response(200, { status: "success", logged_in: false });
     }
 
