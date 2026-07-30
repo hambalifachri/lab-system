@@ -304,6 +304,101 @@ async function adminStatus(context, supabase) {
   return json(200, { status: "success", data });
 }
 
+function systemNim(deviceId) {
+  return `999999999${deviceId.slice(-2)}`;
+}
+
+async function setDeviceMode(supabase, deviceId, enabled) {
+  const { data: previous } = await supabase
+    .from("active_sessions")
+    .select("nim, student_name")
+    .eq("device_id", deviceId)
+    .maybeSingle();
+
+  await supabase.from("active_sessions").delete().eq("device_id", deviceId);
+
+  if (!enabled) {
+    if (previous) {
+      await supabase.from("login_logs").insert({
+        nim: previous.nim,
+        nama: previous.student_name || "Akses Tanpa NIM",
+        aksi: "logout-admin",
+        computer_name: deviceId,
+        device_id: deviceId
+      });
+    }
+    return;
+  }
+
+  const nim = systemNim(deviceId);
+  const nama = `Akses Tanpa NIM ${deviceId}`;
+  const now = new Date().toISOString();
+
+  const studentResult = await supabase.from("students").upsert({
+    nim,
+    nama,
+    aktif: true
+  }, { onConflict: "nim" });
+  if (studentResult.error) throw studentResult.error;
+
+  const computerResult = await supabase.from("lab_computers").upsert({
+    computer_name: deviceId,
+    device_id: deviceId,
+    last_seen: now,
+    status: "online"
+  }, { onConflict: "device_id" });
+  if (computerResult.error) throw computerResult.error;
+
+  const sessionResult = await supabase.from("active_sessions").insert({
+    nim,
+    student_name: nama,
+    computer_name: deviceId,
+    device_id: deviceId,
+    status: `active:${now}`,
+    last_seen: now
+  });
+  if (sessionResult.error) throw sessionResult.error;
+
+  await supabase.from("login_logs").insert({
+    nim,
+    nama,
+    aksi: "login-admin",
+    computer_name: deviceId,
+    device_id: deviceId
+  });
+}
+
+async function adminSession(context, supabase) {
+  if (!method(context.request, "POST")) {
+    return json(405, { status: "error", message: "Method tidak diizinkan" });
+  }
+  if (!isAdmin(context)) {
+    return json(401, { status: "error", message: "Akses admin ditolak" });
+  }
+
+  const body = await readBody(context.request);
+  const deviceId = (body.device_id || "").trim();
+  const enabled = body.enabled === true;
+  if (deviceId !== "ALL" && !isLabComputer(deviceId)) {
+    return json(400, { status: "error", message: "PC lab tidak valid" });
+  }
+
+  const devices = deviceId === "ALL"
+    ? Array.from({ length: 25 }, (_, index) =>
+        `SIPIL-${String(index + 1).padStart(2, "0")}`)
+    : [deviceId];
+  for (const device of devices) {
+    await setDeviceMode(supabase, device, enabled);
+  }
+
+  return json(200, {
+    status: "success",
+    message: enabled
+      ? `${deviceId === "ALL" ? "Semua PC" : deviceId} bebas digunakan tanpa NIM selama maksimal 2 jam`
+      : `Login NIM diwajibkan kembali di ${deviceId === "ALL" ? "semua PC" : deviceId}`
+  });
+}
+
 async function adminBookings(context, supabase) {
   if (!method(context.request, "GET")) {
     return json(405, { status: "error", message: "Method tidak diizinkan" });
@@ -444,6 +539,7 @@ const handlers = {
   "computer-heartbeat": computerHeartbeat,
   "heartbeat": heartbeat,
   "admin-status": adminStatus,
+  "admin-session": adminSession,
   "admin-bookings": adminBookings,
   "get-schedule": getSchedule,
   "create-booking": createBooking,
