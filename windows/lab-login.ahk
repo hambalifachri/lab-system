@@ -46,9 +46,9 @@ SelectWorkingHost()
 EnsureStartup()
 if RequireFreshLogin
     ResetSessionOnStartup()
+CreateLogoutButton()
 SetLoginScreen(true)
 OpenLogin()
-CreateLogoutButton()
 SetTimer CheckLoginStatus, LoginCheckIntervalMs
 
 ; Ctrl + Alt + L: paksa logout bila browser sudah terlanjur ditutup.
@@ -168,13 +168,25 @@ CreateLogoutButton() {
     logoutButton.OnEvent("Click", (*) => ForceLogout())
     ; Tombol dapat digeser memakai judul jendela, tetapi tidak dapat ditutup.
     LogoutGui.OnEvent("Close", KeepLogoutButton)
-    LogoutGui.Show("x" (A_ScreenWidth - 165) " y20 NoActivate")
 }
 
 KeepLogoutButton(*) {
-    global LogoutGui
-    LogoutGui.Show("NoActivate")
+    global IsLabLoggedIn
+    if IsLabLoggedIn
+        ShowLogoutButton()
+    else
+        HideLogoutButton()
     return 1 ; Batalkan Close agar GUI tidak dihancurkan.
+}
+
+ShowLogoutButton() {
+    global LogoutGui
+    LogoutGui.Show("x" (A_ScreenWidth - 165) " y20 NoActivate")
+}
+
+HideLogoutButton() {
+    global LogoutGui
+    try LogoutGui.Hide()
 }
 
 FindBrowser() {
@@ -318,6 +330,11 @@ CloseLoginBrowser() {
 
 SetLoginScreen(isLoginScreen) {
     global IsTaskbarHidden
+    if isLoginScreen
+        HideLogoutButton()
+    else
+        ShowLogoutButton()
+
     if (IsTaskbarHidden = isLoginScreen)
         return
 
