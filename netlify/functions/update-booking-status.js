@@ -52,6 +52,42 @@ exports.handler = async function(event) {
       });
     }
 
+    if (status === 'approved') {
+      const bookingResult = await supabase
+        .from('lab_bookings')
+        .select('id, room_id, booking_date, day_name, start_time, end_time')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (bookingResult.error || !bookingResult.data) {
+        return response(404, { status: "error", message: "Booking tidak ditemukan" });
+      }
+
+      const booking = bookingResult.data;
+      const [scheduleResult, approvedResult] = await Promise.all([
+        supabase.from('lab_schedules')
+          .select('start_time, end_time')
+          .eq('room_id', booking.room_id)
+          .eq('day_name', booking.day_name)
+          .eq('status', 'active'),
+        supabase.from('lab_bookings')
+          .select('id, start_time, end_time')
+          .eq('room_id', booking.room_id)
+          .eq('booking_date', booking.booking_date)
+          .eq('status', 'approved')
+          .neq('id', id)
+      ]);
+
+      if (scheduleResult.error || approvedResult.error) throw scheduleResult.error || approvedResult.error;
+      const overlaps = item =>
+        booking.start_time.slice(0, 5) < item.end_time.slice(0, 5) &&
+        booking.end_time.slice(0, 5) > item.start_time.slice(0, 5);
+
+      if ((scheduleResult.data || []).some(overlaps) || (approvedResult.data || []).some(overlaps)) {
+        return response(409, { status: "error", message: "Booking tidak dapat disetujui karena jadwal sudah bentrok" });
+      }
+    }
+
     const { error } = await supabase
       .from('lab_bookings')
       .update({

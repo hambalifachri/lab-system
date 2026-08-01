@@ -1,232 +1,93 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="id">
 <head>
-  <title>Ajukan Peminjaman Lab</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <style>
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-      padding: 28px;
-    }
-
-    .wrap {
-      width: 100%;
-      max-width: 720px;
-      margin: 0 auto;
-    }
-
-    .header {
-      margin-bottom: 24px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 28px;
-    }
-
-    .subtitle {
-      margin-top: 6px;
-      color: #94a3b8;
-      font-size: 14px;
-    }
-
-    .card {
-      border: 1px solid #1e293b;
-      border-radius: 12px;
-      background: #111827;
-      padding: 24px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .full {
-      grid-column: 1 / -1;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      color: #e2e8f0;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    input,
-    select,
-    textarea {
-      width: 100%;
-      padding: 13px 14px;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      background: #0f172a;
-      color: white;
-      font-size: 14px;
-      outline: none;
-    }
-
-    textarea {
-      min-height: 100px;
-      resize: vertical;
-    }
-
-    input:focus,
-    select:focus,
-    textarea:focus {
-      border-color: #60a5fa;
-      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
-    }
-
-    .actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-      flex-wrap: wrap;
-    }
-
-    button,
-    a {
-      padding: 12px 16px;
-      border-radius: 8px;
-      border: none;
-      background: #2563eb;
-      color: white;
-      text-decoration: none;
-      font-weight: 700;
-      cursor: pointer;
-      font-size: 14px;
-    }
-
-    a.secondary {
-      background: #334155;
-    }
-
-    .note {
-      margin-top: 18px;
-      padding: 14px;
-      border-radius: 8px;
-      background: rgba(37, 99, 235, 0.15);
-      color: #bfdbfe;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    @media (max-width: 640px) {
-      body { padding: 18px; }
-      .grid { grid-template-columns: 1fr; }
-    }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Booking Laboratorium</title>
+  <link rel="stylesheet" href="/lab.css">
 </head>
-
 <body>
+  <main class="page" style="max-width:800px">
+    <header class="topbar">
+      <div class="brand"><div class="logo">L</div><div><h1>Booking Laboratorium</h1><div class="muted small">Ajukan penggunaan ruangan di luar jadwal tetap.</div></div></div>
+      <nav class="nav"><a class="btn secondary" href="/schedule.html">Lihat Jadwal</a></nav>
+    </header>
 
-  <div class="wrap">
-    <div class="header">
-      <h1>Ajukan Peminjaman Lab</h1>
-      <div class="subtitle">Peminjaman hanya untuk dosen dan staff. Jam operasional 08:00 - 16:00.</div>
-    </div>
-
-    <div class="card">
-      <div class="grid">
-        <div>
-          <label>Ruangan</label>
-          <select id="room_id">
-            <option value="2">Lab C.405</option>
-            <option value="1">Lab C.413</option>
-          </select>
+    <section class="card">
+      <div class="card-head"><div><h2>Form Pengajuan</h2><span class="muted small">Untuk dosen dan staf · Senin–Sabtu, 08.00–16.00</span></div></div>
+      <form id="bookingForm" class="card-body">
+        <div class="form-grid">
+          <div class="field"><label for="room_id">Ruangan</label><select id="room_id" required><option value="">Memuat ruangan…</option></select></div>
+          <div class="field"><label for="booking_date">Tanggal</label><input id="booking_date" type="date" required></div>
+          <div class="field"><label for="start_time">Jam mulai</label><input id="start_time" type="time" min="08:00" max="16:00" required></div>
+          <div class="field"><label for="end_time">Jam selesai</label><input id="end_time" type="time" min="08:00" max="16:00" required></div>
+          <div class="field"><label for="borrower_name">Nama peminjam</label><input id="borrower_name" maxlength="120" autocomplete="name" placeholder="Nama lengkap" required></div>
+          <div class="field"><label for="borrower_role">Peran</label><select id="borrower_role" required><option value="Dosen">Dosen</option><option value="Staff">Staf</option></select></div>
+          <div class="field full"><label for="borrower_contact">Kontak aktif</label><input id="borrower_contact" maxlength="120" placeholder="Nomor WhatsApp atau email" required></div>
+          <div class="field full"><label for="purpose">Keperluan</label><textarea id="purpose" maxlength="500" placeholder="Contoh: ujian, praktikum tambahan, pelatihan, atau workshop" required></textarea></div>
         </div>
-
-        <div>
-          <label>Tanggal</label>
-          <input id="booking_date" type="date">
-        </div>
-
-        <div>
-          <label>Jam Mulai</label>
-          <input id="start_time" type="time" min="08:00" max="16:00">
-        </div>
-
-        <div>
-          <label>Jam Selesai</label>
-          <input id="end_time" type="time" min="08:00" max="16:00">
-        </div>
-
-        <div>
-          <label>Nama Peminjam</label>
-          <input id="borrower_name" placeholder="Nama dosen/staff">
-        </div>
-
-        <div>
-          <label>Role</label>
-          <select id="borrower_role">
-            <option value="Dosen">Dosen</option>
-            <option value="Staff">Staff</option>
-          </select>
-        </div>
-
-        <div class="full">
-          <label>Kontak</label>
-          <input id="borrower_contact" placeholder="Nomor HP / email">
-        </div>
-
-        <div class="full">
-          <label>Keperluan</label>
-          <textarea id="purpose" placeholder="Contoh: Praktikum tambahan, pelatihan, ujian, workshop"></textarea>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button onclick="submitBooking()">Kirim Pengajuan</button>
-        <a class="secondary" href="/schedule.html">Lihat Jadwal</a>
-      </div>
-
-      <div class="note">
-        Pengajuan akan masuk sebagai pending dan harus disetujui admin sebelum tampil sebagai jadwal peminjaman.
-      </div>
-    </div>
-  </div>
+        <div class="notice section-space">Sistem otomatis menolak jadwal yang bentrok. Pengajuan baru tampil di jadwal publik setelah disetujui admin.</div>
+        <div id="message" class="status-message" role="alert"></div>
+        <div class="actions section-space"><button id="submitButton" class="btn" type="submit">Kirim Pengajuan</button><a class="btn secondary" href="/schedule.html">Batal</a></div>
+      </form>
+    </section>
+  </main>
 
   <script>
-    function submitBooking() {
-      const data = {
-        room_id: Number(document.getElementById("room_id").value),
-        booking_date: document.getElementById("booking_date").value,
-        start_time: document.getElementById("start_time").value,
-        end_time: document.getElementById("end_time").value,
-        borrower_name: document.getElementById("borrower_name").value.trim(),
-        borrower_role: document.getElementById("borrower_role").value,
-        borrower_contact: document.getElementById("borrower_contact").value.trim(),
-        purpose: document.getElementById("purpose").value.trim()
-      };
+    const form = document.getElementById("bookingForm");
+    const message = document.getElementById("message");
+    const submitButton = document.getElementById("submitButton");
+    const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    booking_date.min = today;
 
-      fetch('/.netlify/functions/create-booking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      .then(res => res.json())
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className = `status-message show ${type}`;
+    }
+
+    fetch("/.netlify/functions/get-rooms")
+      .then(response => response.json())
       .then(result => {
-        alert(result.message);
-
-        if (result.status === "success") {
-          location.href = "/schedule.html";
-        }
+        if (result.status !== "success" || !result.data.length) throw new Error();
+        room_id.innerHTML = `<option value="">Pilih ruangan</option>` + result.data.map(room =>
+          `<option value="${Number(room.id)}">${String(room.room_name).replace(/[&<>"]/g, "")}</option>`
+        ).join("");
       })
       .catch(() => {
-        alert("Gagal koneksi ke server");
+        room_id.innerHTML = `<option value="1">Lab C.413</option><option value="2">Lab C.405</option>`;
       });
-    }
-  </script>
 
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      message.className = "status-message";
+      if (start_time.value >= end_time.value) return showMessage("Jam selesai harus setelah jam mulai.", "error");
+      if (new Date(booking_date.value + "T00:00:00").getDay() === 0) return showMessage("Lab tidak dapat dibooking pada hari Minggu.", "error");
+
+      const payload = {
+        room_id: Number(room_id.value), booking_date: booking_date.value,
+        start_time: start_time.value, end_time: end_time.value,
+        borrower_name: borrower_name.value.trim(), borrower_role: borrower_role.value,
+        borrower_contact: borrower_contact.value.trim(), purpose: purpose.value.trim()
+      };
+
+      submitButton.disabled = true;
+      submitButton.textContent = "Mengirim…";
+      try {
+        const response = await fetch("/.netlify/functions/create-booking", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok || result.status !== "success") throw new Error(result.message || "Pengajuan gagal");
+        form.reset();
+        booking_date.min = today;
+        showMessage(result.message, "success");
+      } catch (error) {
+        showMessage(error.message || "Tidak dapat terhubung ke server.", "error");
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Kirim Pengajuan";
+      }
+    });
+  </script>
 </body>
 </html>

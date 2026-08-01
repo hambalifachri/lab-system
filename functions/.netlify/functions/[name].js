@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
+const SCHEDULE_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
 function json(status, body) {
   return new Response(JSON.stringify(body), {
@@ -49,6 +50,10 @@ function getIndonesianDay(dateString) {
 
 function isOverlap(startA, endA, startB, endB) {
   return startA < endB && endA > startB;
+}
+
+function clean(value, maxLength = 120) {
+  return String(value || "").trim().slice(0, maxLength);
 }
 
 async function login(context, supabase) {
@@ -433,25 +438,133 @@ async function getSchedule(context, supabase) {
   });
 }
 
+async function getRooms(context, supabase) {
+  if (!method(context.request, "GET")) {
+    return json(405, { status: "error", message: "Method tidak diizinkan" });
+  }
+  const { data, error } = await supabase
+    .from("lab_rooms")
+    .select("id, room_name")
+    .order("room_name");
+  if (error) throw error;
+  return json(200, { status: "success", data: data || [] });
+}
+
+async function adminSchedules(context, supabase) {
+  if (!isAdmin(context)) {
+    return json(401, { status: "error", message: "Akses admin ditolak" });
+  }
+
+  if (method(context.request, "GET")) {
+    const { data, error } = await supabase
+      .from("lab_schedules")
+      .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, schedule_type, status, lab_rooms(room_name)")
+      .order("day_name")
+      .order("start_time");
+    if (error) throw error;
+    return json(200, {
+      status: "success",
+      data: (data || []).map(row => ({ ...row, room_name: row.lab_rooms?.room_name || "-", lab_rooms: undefined }))
+    });
+  }
+
+  if (!method(context.request, "POST")) {
+    return json(405, { status: "error", message: "Method tidak diizinkan" });
+  }
+
+  const body = await readBody(context.request);
+  const action = body.action || "save";
+  const id = Number(body.id || 0);
+
+  if (action === "delete") {
+    if (!id) return json(400, { status: "error", message: "ID jadwal tidak valid" });
+    const { error } = await supabase.from("lab_schedules").delete().eq("id", id);
+    if (error) throw error;
+    return json(200, { status: "success", message: "Jadwal berhasil dihapus" });
+  }
+
+  const roomId = Number(body.room_id || 0);
+  const dayName = clean(body.day_name, 10);
+  const startTime = clean(body.start_time, 5);
+  const endTime = clean(body.end_time, 5);
+  const subject = clean(body.subject);
+  const className = clean(body.class_name);
+  const lecturerName = clean(body.lecturer_name);
+  const scheduleType = clean(body.schedule_type || "kuliah", 30);
+
+  if (!roomId || !SCHEDULE_DAYS.includes(dayName) || !startTime || !endTime || !subject) {
+    return json(400, { status: "error", message: "Data jadwal belum lengkap" });
+  }
+  if (startTime >= endTime) {
+    return json(400, { status: "error", message: "Jam selesai harus setelah jam mulai" });
+  }
+
+  const roomResult = await supabase.from("lab_rooms").select("id").eq("id", roomId).maybeSingle();
+  if (roomResult.error || !roomResult.data) {
+    return json(400, { status: "error", message: "Ruangan tidak ditemukan" });
+  }
+
+  let conflictQuery = supabase
+    .from("lab_schedules")
+    .select("id, start_time, end_time, subject")
+    .eq("room_id", roomId)
+    .eq("day_name", dayName)
+    .eq("status", "active");
+  if (id) conflictQuery = conflictQuery.neq("id", id);
+  const conflictResult = await conflictQuery;
+  if (conflictResult.error) throw conflictResult.error;
+  const conflict = (conflictResult.data || []).find(item =>
+    isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
+  );
+  if (conflict) {
+    return json(409, { status: "error", message: `Bentrok dengan jadwal ${conflict.subject}` });
+  }
+
+  const payload = {
+    room_id: roomId,
+    day_name: dayName,
+    start_time: startTime,
+    end_time: endTime,
+    subject,
+    class_name: className,
+    lecturer_name: lecturerName,
+    schedule_type: scheduleType,
+    status: "active"
+  };
+  const result = id
+    ? await supabase.from("lab_schedules").update(payload).eq("id", id)
+    : await supabase.from("lab_schedules").insert(payload);
+  if (result.error) throw result.error;
+
+  return json(200, {
+    status: "success",
+    message: id ? "Jadwal berhasil diperbarui" : "Jadwal berhasil ditambahkan"
+  });
+}
+
 async function createBooking(context, supabase) {
   if (!method(context.request, "POST")) {
     return json(405, { status: "error", message: "Method tidak diizinkan" });
   }
   const body = await readBody(context.request);
-  const roomId = body.room_id;
-  const bookingDate = body.booking_date;
-  const startTime = body.start_time;
-  const endTime = body.end_time;
-  const borrowerName = body.borrower_name || "";
-  const borrowerRole = body.borrower_role || "";
-  const borrowerContact = body.borrower_contact || "";
-  const purpose = body.purpose || "";
+  const roomId = Number(body.room_id || 0);
+  const bookingDate = clean(body.booking_date, 10);
+  const startTime = clean(body.start_time, 5);
+  const endTime = clean(body.end_time, 5);
+  const borrowerName = clean(body.borrower_name, 120);
+  const borrowerRole = clean(body.borrower_role, 20);
+  const borrowerContact = clean(body.borrower_contact, 120);
+  const purpose = clean(body.purpose, 500);
 
-  if (!roomId || !bookingDate || !startTime || !endTime || !borrowerName || !borrowerRole || !purpose) {
+  if (!roomId || !bookingDate || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact || !purpose) {
     return json(400, { status: "error", message: "Data peminjaman belum lengkap" });
   }
   if (!["Dosen", "Staff"].includes(borrowerRole)) {
     return json(400, { status: "error", message: "Peminjam hanya boleh Dosen atau Staff" });
+  }
+  const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) || bookingDate < today) {
+    return json(400, { status: "error", message: "Tanggal peminjaman tidak boleh di masa lalu" });
   }
   if (startTime < "08:00" || endTime > "16:00" || startTime >= endTime) {
     return json(400, { status: "error", message: "Jam peminjaman harus di antara 08:00 - 16:00" });
@@ -462,12 +575,18 @@ async function createBooking(context, supabase) {
     return json(400, { status: "error", message: "Peminjaman hanya Senin sampai Sabtu" });
   }
 
-  const { data: schedules } = await supabase
+  const roomResult = await supabase.from("lab_rooms").select("id").eq("id", roomId).maybeSingle();
+  if (roomResult.error || !roomResult.data) {
+    return json(400, { status: "error", message: "Ruangan tidak ditemukan" });
+  }
+
+  const { data: schedules, error: scheduleError } = await supabase
     .from("lab_schedules")
     .select("start_time, end_time")
     .eq("room_id", roomId)
     .eq("day_name", dayName)
     .eq("status", "active");
+  if (scheduleError) throw scheduleError;
   const scheduleConflict = (schedules || []).some(item =>
     isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
   );
@@ -475,12 +594,13 @@ async function createBooking(context, supabase) {
     return json(409, { status: "error", message: "Jadwal bentrok dengan jadwal tetap lab" });
   }
 
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingError } = await supabase
     .from("lab_bookings")
     .select("start_time, end_time")
     .eq("room_id", roomId)
     .eq("booking_date", bookingDate)
     .in("status", ["pending", "approved"]);
+  if (bookingError) throw bookingError;
   const bookingConflict = (bookings || []).some(item =>
     isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
   );
@@ -521,6 +641,38 @@ async function updateBookingStatus(context, supabase) {
   if (!id || !["approved", "rejected", "cancelled"].includes(status)) {
     return json(400, { status: "error", message: "Data status tidak valid" });
   }
+  if (status === "approved") {
+    const bookingResult = await supabase
+      .from("lab_bookings")
+      .select("id, room_id, booking_date, day_name, start_time, end_time")
+      .eq("id", id)
+      .maybeSingle();
+    if (bookingResult.error || !bookingResult.data) {
+      return json(404, { status: "error", message: "Booking tidak ditemukan" });
+    }
+
+    const booking = bookingResult.data;
+    const [scheduleResult, approvedResult] = await Promise.all([
+      supabase.from("lab_schedules")
+        .select("start_time, end_time")
+        .eq("room_id", booking.room_id)
+        .eq("day_name", booking.day_name)
+        .eq("status", "active"),
+      supabase.from("lab_bookings")
+        .select("id, start_time, end_time")
+        .eq("room_id", booking.room_id)
+        .eq("booking_date", booking.booking_date)
+        .eq("status", "approved")
+        .neq("id", id)
+    ]);
+    if (scheduleResult.error || approvedResult.error) throw scheduleResult.error || approvedResult.error;
+    const overlaps = item =>
+      booking.start_time.slice(0, 5) < item.end_time.slice(0, 5) &&
+      booking.end_time.slice(0, 5) > item.start_time.slice(0, 5);
+    if ((scheduleResult.data || []).some(overlaps) || (approvedResult.data || []).some(overlaps)) {
+      return json(409, { status: "error", message: "Booking tidak dapat disetujui karena jadwal sudah bentrok" });
+    }
+  }
   const { error } = await supabase
     .from("lab_bookings")
     .update({ status, admin_note: adminNote })
@@ -541,7 +693,9 @@ const handlers = {
   "admin-status": adminStatus,
   "admin-session": adminSession,
   "admin-bookings": adminBookings,
+  "admin-schedules": adminSchedules,
   "get-schedule": getSchedule,
+  "get-rooms": getRooms,
   "create-booking": createBooking,
   "update-booking-status": updateBookingStatus
 };

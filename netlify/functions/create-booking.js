@@ -28,6 +28,10 @@ function isOverlap(startA, endA, startB, endB) {
   return startA < endB && endA > startB;
 }
 
+function clean(value, maxLength = 160) {
+  return String(value || "").trim().slice(0, maxLength);
+}
+
 // ================= CREATE BOOKING FUNCTION =================
 exports.handler = async function(event) {
   if (event.httpMethod !== "POST") {
@@ -40,16 +44,16 @@ exports.handler = async function(event) {
   try {
     const body = JSON.parse(event.body || "{}");
 
-    const roomId = body.room_id;
-    const bookingDate = body.booking_date;
-    const startTime = body.start_time;
-    const endTime = body.end_time;
-    const borrowerName = body.borrower_name || "";
-    const borrowerRole = body.borrower_role || "";
-    const borrowerContact = body.borrower_contact || "";
-    const purpose = body.purpose || "";
+    const roomId = Number(body.room_id || 0);
+    const bookingDate = clean(body.booking_date, 10);
+    const startTime = clean(body.start_time, 5);
+    const endTime = clean(body.end_time, 5);
+    const borrowerName = clean(body.borrower_name, 120);
+    const borrowerRole = clean(body.borrower_role, 20);
+    const borrowerContact = clean(body.borrower_contact, 120);
+    const purpose = clean(body.purpose, 500);
 
-    if (!roomId || !bookingDate || !startTime || !endTime || !borrowerName || !borrowerRole || !purpose) {
+    if (!roomId || !bookingDate || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact || !purpose) {
       return response(400, {
         status: "error",
         message: "Data peminjaman belum lengkap"
@@ -60,6 +64,14 @@ exports.handler = async function(event) {
       return response(400, {
         status: "error",
         message: "Peminjam hanya boleh Dosen atau Staff"
+      });
+    }
+
+    const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) || bookingDate < today) {
+      return response(400, {
+        status: "error",
+        message: "Tanggal peminjaman tidak boleh di masa lalu"
       });
     }
 
@@ -79,13 +91,25 @@ exports.handler = async function(event) {
       });
     }
 
+    const roomResult = await supabase
+      .from('lab_rooms')
+      .select('id')
+      .eq('id', roomId)
+      .maybeSingle();
+
+    if (roomResult.error || !roomResult.data) {
+      return response(400, { status: "error", message: "Ruangan tidak ditemukan" });
+    }
+
     // ================= CEK BENTROK JADWAL TETAP =================
-    const { data: schedules } = await supabase
+    const { data: schedules, error: scheduleError } = await supabase
       .from('lab_schedules')
       .select('start_time, end_time')
       .eq('room_id', roomId)
       .eq('day_name', dayName)
       .eq('status', 'active');
+
+    if (scheduleError) throw scheduleError;
 
     const scheduleConflict = (schedules || []).some(item =>
       isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
@@ -99,12 +123,14 @@ exports.handler = async function(event) {
     }
 
     // ================= CEK BENTROK BOOKING APPROVED/PENDING =================
-    const { data: bookings } = await supabase
+    const { data: bookings, error: bookingError } = await supabase
       .from('lab_bookings')
       .select('start_time, end_time')
       .eq('room_id', roomId)
       .eq('booking_date', bookingDate)
       .in('status', ['pending', 'approved']);
+
+    if (bookingError) throw bookingError;
 
     const bookingConflict = (bookings || []).some(item =>
       isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))

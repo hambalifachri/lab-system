@@ -1,305 +1,90 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="id">
 <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Admin Booking Lab</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <style>
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-      padding: 28px;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 28px;
-    }
-
-    .subtitle {
-      margin-top: 6px;
-      color: #94a3b8;
-      font-size: 14px;
-    }
-
-    .nav {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .nav a,
-    button {
-      padding: 10px 13px;
-      border-radius: 8px;
-      border: none;
-      background: #2563eb;
-      color: white;
-      text-decoration: none;
-      font-weight: 700;
-      cursor: pointer;
-      font-size: 13px;
-    }
-
-    .nav a.secondary,
-    button.secondary {
-      background: #334155;
-    }
-
-    button.approve { background: #16a34a; }
-    button.reject { background: #dc2626; }
-    button.logout-admin { background: #dc2626; }
-
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid #1e293b;
-      border-radius: 12px;
-      background: #111827;
-    }
-
-    table {
-      width: 100%;
-      min-width: 1050px;
-      border-collapse: collapse;
-    }
-
-    th,
-    td {
-      padding: 13px 14px;
-      border-bottom: 1px solid #1e293b;
-      text-align: left;
-      font-size: 14px;
-      vertical-align: top;
-    }
-
-    th {
-      background: #020617;
-      color: #cbd5e1;
-    }
-
-    tr:last-child td { border-bottom: none; }
-
-    .badge {
-      display: inline-block;
-      padding: 4px 9px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .pending {
-      background: rgba(234, 179, 8, 0.2);
-      color: #fde68a;
-    }
-
-    .approved {
-      background: rgba(22, 163, 74, 0.2);
-      color: #86efac;
-    }
-
-    .rejected {
-      background: rgba(220, 38, 38, 0.2);
-      color: #fca5a5;
-    }
-
-    .cancelled {
-      background: rgba(100, 116, 139, 0.2);
-      color: #cbd5e1;
-    }
-
-    .empty {
-      padding: 36px;
-      text-align: center;
-      color: #94a3b8;
-    }
-
-    @media (max-width: 640px) {
-      body { padding: 18px; }
-      .header { flex-direction: column; align-items: flex-start; }
-    }
-  </style>
+  <link rel="stylesheet" href="/lab.css">
 </head>
-
 <body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand"><div class="logo">A</div><div><h1>Kelola Booking Lab</h1><div class="muted small">Periksa dan putuskan pengajuan peminjaman.</div></div></div>
+      <nav class="nav"><a class="btn secondary" href="/admin.html">PC Lab</a><a class="btn secondary" href="/admin-schedule.html">Jadwal Tetap</a><a class="btn" href="/schedule.html">Jadwal Publik</a><button class="btn danger" onclick="logoutAdmin()">Keluar</button></nav>
+    </header>
 
-  <div class="header">
-    <div>
-      <h1>Admin Booking Lab</h1>
-      <div class="subtitle">Kelola pengajuan peminjaman lab.</div>
-    </div>
+    <section class="stats">
+      <div class="stat"><span class="muted small">Menunggu</span><strong id="pendingCount">0</strong></div>
+      <div class="stat"><span class="muted small">Disetujui</span><strong id="approvedCount">0</strong></div>
+      <div class="stat"><span class="muted small">Ditolak</span><strong id="rejectedCount">0</strong></div>
+      <div class="stat"><span class="muted small">Total</span><strong id="totalCount">0</strong></div>
+    </section>
 
-    <div class="nav">
-      <a href="/schedule.html">Jadwal</a>
-      <a class="secondary" href="/booking.html">Form Peminjaman</a>
-      <button class="secondary" onclick="loadBookings()">Refresh</button>
-      <button class="logout-admin" onclick="logoutAdmin()">Keluar Admin</button>
-    </div>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Tanggal</th>
-          <th>Lab</th>
-          <th>Jam</th>
-          <th>Peminjam</th>
-          <th>Kontak</th>
-          <th>Keperluan</th>
-          <th>Status</th>
-          <th>Aksi</th>
-        </tr>
-      </thead>
-
-      <tbody id="bookingBody">
-        <tr>
-          <td colspan="8" class="empty">Memuat data...</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+    <section class="card">
+      <div class="card-head">
+        <div><h2>Daftar Pengajuan</h2><span class="muted small">Pengajuan terbaru ditampilkan lebih dahulu.</span></div>
+        <div class="filters"><select id="statusFilter" class="filter-control"><option value="">Semua status</option><option value="pending">Menunggu</option><option value="approved">Disetujui</option><option value="rejected">Ditolak</option><option value="cancelled">Dibatalkan</option></select><input id="searchInput" class="filter-control" placeholder="Cari nama/lab…"><button class="btn secondary" onclick="loadBookings()">Refresh</button></div>
+      </div>
+      <div id="message" class="status-message" style="margin:14px 18px 0"></div>
+      <div id="bookingList" class="empty">Memuat pengajuan…</div>
+    </section>
+  </main>
 
   <script>
-    let adminToken = localStorage.getItem("admin_token");
+    let token = localStorage.getItem("admin_token") || "";
+    let rows = [];
+    const esc = value => String(value ?? "-").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+    const time = value => value ? value.slice(0, 5) : "-";
+    const date = value => value ? new Date(value + "T00:00:00").toLocaleDateString("id-ID", { weekday:"short", day:"2-digit", month:"short", year:"numeric" }) : "-";
+    const labels = { pending:"Menunggu", approved:"Disetujui", rejected:"Ditolak", cancelled:"Dibatalkan" };
+    if (!token) { token = prompt("Masukkan password admin:") || ""; if (token) localStorage.setItem("admin_token", token); }
 
-    if (!adminToken) {
-      adminToken = prompt("Masukkan password admin:");
-
-      if (adminToken) {
-        localStorage.setItem("admin_token", adminToken);
-      }
+    function logoutAdmin() { localStorage.removeItem("admin_token"); location.href = "/admin.html"; }
+    function showMessage(text, type) { message.textContent = text; message.className = `status-message show ${type}`; }
+    async function api(path, options = {}) {
+      options.headers = { ...(options.headers || {}), "x-admin-token": token };
+      const response = await fetch(path, options); const result = await response.json();
+      if (response.status === 401) { localStorage.removeItem("admin_token"); throw new Error("Password admin salah. Muat ulang halaman."); }
+      if (!response.ok || result.status !== "success") throw new Error(result.message || "Permintaan gagal");
+      return result;
     }
 
-    function logoutAdmin() {
-      localStorage.removeItem("admin_token");
-      location.reload();
-    }
-
-    function handleUnauthorized(result) {
-      if (result.status === "error" && result.message === "Akses admin ditolak") {
-        localStorage.removeItem("admin_token");
-        alert("Password admin salah");
-        location.reload();
-        return true;
-      }
-
-      return false;
-    }
-
-    function formatDate(value) {
-      if (!value) return "-";
-
-      const date = new Date(value + "T00:00:00");
-
-      return date.toLocaleDateString("id-ID", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-        year: "numeric"
-      });
-    }
-
-    function formatTime(value) {
-      if (!value) return "-";
-      return value.slice(0, 5);
-    }
-
-    function updateStatus(id, status) {
-      const note = status === "rejected" ? prompt("Catatan penolakan:", "") || "" : "";
-
-      fetch('/.netlify/functions/update-booking-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-token': adminToken
-        },
-        body: JSON.stringify({
-          id: id,
-          status: status,
-          admin_note: note
-        })
-      })
-      .then(res => res.json())
-      .then(result => {
-        if (handleUnauthorized(result)) return;
-
-        alert(result.message);
-        loadBookings();
-      })
-      .catch(() => {
-        alert("Gagal koneksi ke server");
-      });
+    function updateStats() {
+      pendingCount.textContent = rows.filter(row => row.status === "pending").length;
+      approvedCount.textContent = rows.filter(row => row.status === "approved").length;
+      rejectedCount.textContent = rows.filter(row => row.status === "rejected").length;
+      totalCount.textContent = rows.length;
     }
 
     function renderActions(row) {
-      if (row.status !== "pending") return "-";
-
-      return `
-        <button class="approve" onclick="updateStatus(${row.id}, 'approved')">Approve</button>
-        <button class="reject" onclick="updateStatus(${row.id}, 'rejected')">Reject</button>
-      `;
+      if (row.status === "pending") return `<div class="actions"><button class="btn success small-btn" onclick="updateStatus(${row.id},'approved')">Setujui</button><button class="btn danger small-btn" onclick="updateStatus(${row.id},'rejected')">Tolak</button></div>`;
+      if (row.status === "approved") return `<button class="btn warning small-btn" onclick="updateStatus(${row.id},'cancelled')">Batalkan</button>`;
+      return "—";
     }
 
-    function loadBookings() {
-      const tbody = document.getElementById("bookingBody");
-
-      if (!adminToken) {
-        tbody.innerHTML = `<tr><td colspan="8" class="empty">Akses admin diperlukan</td></tr>`;
-        return;
-      }
-
-      fetch('/.netlify/functions/admin-bookings', {
-        headers: { 'x-admin-token': adminToken }
-      })
-      .then(res => res.json())
-      .then(result => {
-        if (handleUnauthorized(result)) return;
-
-        if (result.status !== "success") {
-          tbody.innerHTML = `<tr><td colspan="8" class="empty">Gagal mengambil data</td></tr>`;
-          return;
-        }
-
-        const rows = result.data || [];
-
-        if (!rows.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="empty">Belum ada pengajuan</td></tr>`;
-          return;
-        }
-
-        tbody.innerHTML = rows.map(row => `
-          <tr>
-            <td>${formatDate(row.booking_date)}</td>
-            <td>${row.room_name}</td>
-            <td>${formatTime(row.start_time)} - ${formatTime(row.end_time)}</td>
-            <td>${row.borrower_name}<br><span class="badge ${row.status}">${row.borrower_role}</span></td>
-            <td>${row.borrower_contact || "-"}</td>
-            <td>${row.purpose}</td>
-            <td><span class="badge ${row.status}">${row.status}</span></td>
-            <td>${renderActions(row)}</td>
-          </tr>
-        `).join("");
-      })
-      .catch(() => {
-        tbody.innerHTML = `<tr><td colspan="8" class="empty">Gagal koneksi server</td></tr>`;
-      });
+    function renderRows() {
+      const query = searchInput.value.trim().toLowerCase();
+      const filtered = rows.filter(row => (!statusFilter.value || row.status === statusFilter.value) && (!query || [row.borrower_name,row.room_name,row.purpose,row.borrower_contact].some(value => String(value || "").toLowerCase().includes(query))));
+      if (!filtered.length) { bookingList.innerHTML = `<div class="empty">Tidak ada pengajuan yang sesuai.</div>`; return; }
+      bookingList.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Tanggal/Waktu</th><th>Ruangan</th><th>Peminjam</th><th>Keperluan</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${filtered.map(row => `
+        <tr><td><strong>${date(row.booking_date)}</strong><br><span class="time small">${time(row.start_time)}–${time(row.end_time)}</span></td><td><span class="badge">${esc(row.room_name)}</span></td><td><strong>${esc(row.borrower_name)}</strong> · ${esc(row.borrower_role)}<br><span class="muted small">${esc(row.borrower_contact)}</span></td><td>${esc(row.purpose)}${row.admin_note ? `<br><span class="muted small">Catatan: ${esc(row.admin_note)}</span>` : ""}</td><td><span class="badge ${esc(row.status)}">${labels[row.status] || esc(row.status)}</span></td><td>${renderActions(row)}</td></tr>`).join("")}</tbody></table></div>`;
     }
 
-    loadBookings();
+    async function updateStatus(id, status) {
+      let note = "";
+      if (status === "rejected" || status === "cancelled") { note = prompt(status === "rejected" ? "Alasan penolakan:" : "Alasan pembatalan:", "") || ""; if (!note.trim()) return; }
+      try {
+        const result = await api("/.netlify/functions/update-booking-status", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ id, status, admin_note:note.trim() }) });
+        showMessage(result.message, "success"); await loadBookings();
+      } catch (error) { showMessage(error.message, "error"); }
+    }
+
+    async function loadBookings() {
+      bookingList.innerHTML = `<div class="empty">Memuat pengajuan…</div>`;
+      try { const result = await api("/.netlify/functions/admin-bookings"); rows = result.data || []; updateStats(); renderRows(); }
+      catch (error) { bookingList.innerHTML = `<div class="empty">${esc(error.message)}</div>`; }
+    }
+    statusFilter.addEventListener("change", renderRows); searchInput.addEventListener("input", renderRows); loadBookings();
   </script>
-
 </body>
 </html>

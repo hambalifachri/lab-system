@@ -1,303 +1,99 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="id">
 <head>
-  <title>Jadwal Lab</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <style>
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-      padding: 28px;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 28px;
-    }
-
-    .subtitle {
-      margin-top: 6px;
-      color: #94a3b8;
-      font-size: 14px;
-    }
-
-    .nav {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .nav a,
-    button {
-      padding: 11px 14px;
-      border-radius: 8px;
-      border: none;
-      background: #2563eb;
-      color: white;
-      text-decoration: none;
-      font-weight: 700;
-      cursor: pointer;
-      font-size: 14px;
-    }
-
-    .nav a.secondary {
-      background: #334155;
-    }
-
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 18px;
-      flex-wrap: wrap;
-    }
-
-    .tab {
-      padding: 9px 13px;
-      border-radius: 8px;
-      background: #1e293b;
-      cursor: pointer;
-      color: #cbd5e1;
-      border: 1px solid #334155;
-    }
-
-    .tab.active {
-      background: #2563eb;
-      color: #ffffff;
-      border-color: #2563eb;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 18px;
-    }
-
-    .card {
-      border: 1px solid #1e293b;
-      border-radius: 12px;
-      background: #111827;
-      overflow: hidden;
-    }
-
-    .card h2 {
-      margin: 0;
-      padding: 16px;
-      font-size: 18px;
-      background: #020617;
-      border-bottom: 1px solid #1e293b;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    td, th {
-      padding: 13px 16px;
-      border-bottom: 1px solid #1e293b;
-      text-align: left;
-      font-size: 14px;
-      vertical-align: top;
-    }
-
-    tr:last-child td { border-bottom: none; }
-
-    th {
-      color: #cbd5e1;
-      background: #0f172a;
-      font-size: 13px;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 4px 9px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-      background: rgba(37, 99, 235, 0.2);
-      color: #93c5fd;
-    }
-
-    .empty {
-      padding: 28px;
-      text-align: center;
-      color: #94a3b8;
-    }
-
-    @media (max-width: 860px) {
-      body { padding: 18px; }
-      .header { flex-direction: column; align-items: flex-start; }
-      .grid { grid-template-columns: 1fr; }
-    }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Jadwal Laboratorium</title>
+  <link rel="stylesheet" href="/lab.css">
 </head>
-
 <body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">L</div>
+        <div><h1>Jadwal Laboratorium</h1><div class="muted small">Jadwal kuliah dan peminjaman ruangan lab.</div></div>
+      </div>
+      <nav class="nav">
+        <a class="btn" href="/booking.html">Ajukan Booking</a>
+        <a class="btn secondary" href="/admin-booking.html">Admin</a>
+      </nav>
+    </header>
 
-  <div class="header">
-    <div>
-      <h1>Jadwal Lab</h1>
-      <div class="subtitle">Jadwal tetap dan peminjaman lab yang sudah disetujui.</div>
-    </div>
+    <section class="stats">
+      <div class="stat"><span class="muted small">Jadwal tetap</span><strong id="scheduleCount">—</strong></div>
+      <div class="stat"><span class="muted small">Booking disetujui</span><strong id="bookingCount">—</strong></div>
+      <div class="stat"><span class="muted small">Ruangan</span><strong id="roomCount">—</strong></div>
+      <div class="stat"><span class="muted small">Hari dipilih</span><strong id="selectedLabel">—</strong></div>
+    </section>
 
-<div class="nav">
-  <a href="/booking.html">Ajukan Peminjaman</a>
-</div>
-</div>
+    <div class="tabs" id="tabs" aria-label="Pilih hari"></div>
 
-  <div class="tabs" id="tabs"></div>
-
-  <div class="grid">
-    <div class="card">
-      <h2>Jadwal Tetap</h2>
-      <div id="scheduleBox" class="empty">Memuat jadwal...</div>
-    </div>
-
-    <div class="card">
-      <h2>Peminjaman Disetujui</h2>
-      <div id="bookingBox" class="empty">Memuat peminjaman...</div>
-    </div>
-  </div>
+    <section class="grid-2">
+      <article class="card">
+        <div class="card-head"><div><h2>Jadwal Tetap</h2><span class="muted small">Kuliah dan praktikum rutin</span></div></div>
+        <div id="scheduleBox" class="empty">Memuat jadwal…</div>
+      </article>
+      <article class="card">
+        <div class="card-head"><div><h2>Booking Disetujui</h2><span class="muted small">Peminjaman pada tanggal tertentu</span></div></div>
+        <div id="bookingBox" class="empty">Memuat booking…</div>
+      </article>
+    </section>
+  </main>
 
   <script>
     const days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-    let selectedDay = "Senin";
-    let schedules = [];
-    let bookings = [];
-
-    function formatTime(value) {
-      if (!value) return "-";
-      return value.slice(0, 5);
-    }
-
-    function formatDate(value) {
-      if (!value) return "-";
-      const date = new Date(value + "T00:00:00");
-      return date.toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric"
-      });
-    }
+    const todayIndex = new Date().getDay();
+    let selectedDay = days[todayIndex - 1] || "Senin";
+    let schedules = [], bookings = [];
+    const esc = value => String(value ?? "-").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+    const time = value => value ? value.slice(0, 5) : "-";
+    const date = value => value ? new Date(value + "T00:00:00").toLocaleDateString("id-ID", { day:"2-digit", month:"short", year:"numeric" }) : "-";
 
     function renderTabs() {
-      document.getElementById("tabs").innerHTML = days.map(day => `
-        <div class="tab ${day === selectedDay ? "active" : ""}" onclick="selectDay('${day}')">${day}</div>
-      `).join("");
+      tabs.innerHTML = days.map(day => `<button class="tab ${day === selectedDay ? "active" : ""}" data-day="${day}">${day}</button>`).join("");
+      selectedLabel.textContent = selectedDay;
     }
 
-    function selectDay(day) {
-      selectedDay = day;
+    function scheduleTable(rows) {
+      if (!rows.length) return `<div class="empty">Belum ada jadwal tetap pada ${selectedDay}.</div>`;
+      return `<div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Kegiatan</th><th>Ruangan</th></tr></thead><tbody>${rows.map(row => `
+        <tr><td class="time">${time(row.start_time)}–${time(row.end_time)}</td><td><strong>${esc(row.subject)}</strong><br><span class="muted small">${esc(row.class_name)} · ${esc(row.lecturer_name)}</span></td><td><span class="badge">${esc(row.room_name)}</span></td></tr>`).join("")}</tbody></table></div>`;
+    }
+
+    function bookingTable(rows) {
+      if (!rows.length) return `<div class="empty">Belum ada booking disetujui pada ${selectedDay}.</div>`;
+      return `<div class="table-wrap"><table><thead><tr><th>Tanggal/Waktu</th><th>Peminjam</th><th>Ruangan</th></tr></thead><tbody>${rows.map(row => `
+        <tr><td><strong>${date(row.booking_date)}</strong><br><span class="time small">${time(row.start_time)}–${time(row.end_time)}</span></td><td><strong>${esc(row.borrower_name)}</strong><br><span class="muted small">${esc(row.purpose)}</span></td><td><span class="badge approved">${esc(row.room_name)}</span></td></tr>`).join("")}</tbody></table></div>`;
+    }
+
+    function render() {
       renderTabs();
-      renderData();
+      scheduleBox.innerHTML = scheduleTable(schedules.filter(row => row.day_name === selectedDay));
+      bookingBox.innerHTML = bookingTable(bookings.filter(row => row.day_name === selectedDay));
     }
 
-    function renderTable(rows, type) {
-      if (!rows.length) {
-        return `<div class="empty">Tidak ada data untuk ${selectedDay}</div>`;
-      }
+    tabs.addEventListener("click", event => {
+      const button = event.target.closest("[data-day]");
+      if (!button) return;
+      selectedDay = button.dataset.day;
+      render();
+    });
 
-      if (type === "schedule") {
-        return `
-          <table>
-            <thead>
-              <tr>
-                <th>Lab</th>
-                <th>Jam</th>
-                <th>Matkul/Kelas</th>
-                <th>Dosen</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(row => `
-                <tr>
-                  <td>${row.room_name}</td>
-                  <td>${formatTime(row.start_time)} - ${formatTime(row.end_time)}</td>
-                  <td>
-                    <strong>${row.subject}</strong><br>
-                    <span class="badge">${row.class_name || "-"}</span>
-                  </td>
-                  <td>${row.lecturer_name || "-"}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        `;
-      }
-
-      return `
-        <table>
-          <thead>
-            <tr>
-              <th>Tanggal</th>
-              <th>Lab</th>
-              <th>Jam</th>
-              <th>Peminjam</th>
-              <th>Keperluan</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(row => `
-              <tr>
-                <td>${formatDate(row.booking_date)}</td>
-                <td>${row.room_name}</td>
-                <td>${formatTime(row.start_time)} - ${formatTime(row.end_time)}</td>
-                <td>${row.borrower_name}<br><span class="badge">${row.borrower_role}</span></td>
-                <td>${row.purpose}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      `;
-    }
-
-    function renderData() {
-      const scheduleRows = schedules.filter(row => row.day_name === selectedDay);
-      const bookingRows = bookings.filter(row => row.day_name === selectedDay);
-
-      document.getElementById("scheduleBox").innerHTML = renderTable(scheduleRows, "schedule");
-      document.getElementById("bookingBox").innerHTML = renderTable(bookingRows, "booking");
-    }
-
-    function loadData() {
-      fetch('/.netlify/functions/get-schedule')
-        .then(res => res.json())
-        .then(result => {
-          if (result.status !== "success") {
-            document.getElementById("scheduleBox").innerHTML = `<div class="empty">Gagal memuat data</div>`;
-            document.getElementById("bookingBox").innerHTML = `<div class="empty">Gagal memuat data</div>`;
-            return;
-          }
-
-          schedules = result.schedules || [];
-          bookings = result.bookings || [];
-
-          renderTabs();
-          renderData();
-        })
-        .catch(() => {
-          document.getElementById("scheduleBox").innerHTML = `<div class="empty">Gagal koneksi server</div>`;
-          document.getElementById("bookingBox").innerHTML = `<div class="empty">Gagal koneksi server</div>`;
-        });
-    }
-
-    renderTabs();
-    loadData();
+    fetch("/.netlify/functions/get-schedule", { cache: "no-store" })
+      .then(async response => ({ ok: response.ok, body: await response.json() }))
+      .then(({ ok, body }) => {
+        if (!ok || body.status !== "success") throw new Error(body.message);
+        schedules = body.schedules || [];
+        bookings = body.bookings || [];
+        scheduleCount.textContent = schedules.length;
+        bookingCount.textContent = bookings.length;
+        roomCount.textContent = new Set([...schedules, ...bookings].map(item => item.room_name)).size || "0";
+        render();
+      })
+      .catch(() => {
+        scheduleBox.innerHTML = bookingBox.innerHTML = `<div class="empty">Data belum dapat dimuat. Silakan coba lagi.</div>`;
+        renderTabs();
+      });
   </script>
-
 </body>
 </html>

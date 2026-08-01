@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Jadwal Lab</title>
+  <link rel="stylesheet" href="/lab.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand"><div class="logo">A</div><div><h1>Kelola Jadwal Tetap</h1><div class="muted small">Tambah, ubah, dan hapus jadwal kuliah atau praktikum.</div></div></div>
+      <nav class="nav"><a class="btn secondary" href="/admin.html">PC Lab</a><a class="btn secondary" href="/admin-booking.html">Booking</a><a class="btn" href="/schedule.html">Jadwal Publik</a></nav>
+    </header>
+
+    <section class="grid-2 schedule-admin-grid">
+      <article class="card">
+        <div class="card-head"><div><h2 id="formTitle">Tambah Jadwal</h2><span class="muted small">Data bertanda * wajib diisi</span></div></div>
+        <form id="scheduleForm" class="card-body">
+          <input id="schedule_id" type="hidden">
+          <div class="form-grid">
+            <div class="field"><label for="room_id">Ruangan *</label><select id="room_id" required><option value="">Memuat…</option></select></div>
+            <div class="field"><label for="day_name">Hari *</label><select id="day_name" required><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option><option>Sabtu</option></select></div>
+            <div class="field"><label for="start_time">Mulai *</label><input id="start_time" type="time" required></div>
+            <div class="field"><label for="end_time">Selesai *</label><input id="end_time" type="time" required></div>
+            <div class="field full"><label for="subject">Mata kuliah/kegiatan *</label><input id="subject" maxlength="120" required></div>
+            <div class="field"><label for="class_name">Kelas/prodi</label><input id="class_name" maxlength="120"></div>
+            <div class="field"><label for="schedule_type">Jenis</label><select id="schedule_type"><option value="kuliah">Kuliah</option><option value="praktikum">Praktikum</option><option value="ujian">Ujian</option><option value="lainnya">Lainnya</option></select></div>
+            <div class="field full"><label for="lecturer_name">Dosen/Penanggung jawab</label><input id="lecturer_name" maxlength="120"></div>
+          </div>
+          <div id="message" class="status-message"></div>
+          <div class="actions section-space"><button id="saveButton" class="btn" type="submit">Simpan Jadwal</button><button class="btn secondary" type="button" onclick="resetForm()">Kosongkan</button></div>
+        </form>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><div><h2>Daftar Jadwal</h2><span id="totalLabel" class="muted small">Memuat data…</span></div><select id="dayFilter" class="filter-control"><option value="">Semua hari</option><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option><option>Sabtu</option></select></div>
+        <div id="scheduleList" class="empty">Memuat jadwal…</div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    let token = localStorage.getItem("admin_token") || "";
+    let rows = [];
+    const esc = value => String(value ?? "-").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+    const time = value => value ? value.slice(0, 5) : "-";
+    if (!token) { token = prompt("Masukkan password admin:") || ""; if (token) localStorage.setItem("admin_token", token); }
+
+    function api(path, options = {}) {
+      options.headers = { ...(options.headers || {}), "x-admin-token": token };
+      return fetch(path, options).then(async response => {
+        const result = await response.json();
+        if (response.status === 401) { localStorage.removeItem("admin_token"); throw new Error("Password admin salah. Muat ulang halaman."); }
+        if (!response.ok || result.status !== "success") throw new Error(result.message || "Permintaan gagal");
+        return result;
+      });
+    }
+
+    function showMessage(text, type) { message.textContent = text; message.className = `status-message show ${type}`; }
+    function resetForm() { scheduleForm.reset(); schedule_id.value = ""; formTitle.textContent = "Tambah Jadwal"; message.className = "status-message"; }
+    function editSchedule(id) {
+      const row = rows.find(item => item.id === id); if (!row) return;
+      schedule_id.value = row.id; room_id.value = row.room_id; day_name.value = row.day_name;
+      start_time.value = time(row.start_time); end_time.value = time(row.end_time); subject.value = row.subject || "";
+      class_name.value = row.class_name || ""; lecturer_name.value = row.lecturer_name || ""; schedule_type.value = row.schedule_type || "kuliah";
+      formTitle.textContent = "Ubah Jadwal"; window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function deleteSchedule(id) {
+      if (!confirm("Hapus jadwal ini?")) return;
+      try { const result = await api("/.netlify/functions/admin-schedules", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ action:"delete", id }) }); showMessage(result.message, "success"); await loadSchedules(); }
+      catch (error) { showMessage(error.message, "error"); }
+    }
+
+    function renderRows() {
+      const filtered = rows.filter(row => !dayFilter.value || row.day_name === dayFilter.value);
+      totalLabel.textContent = `${filtered.length} jadwal ditampilkan`;
+      if (!filtered.length) { scheduleList.innerHTML = `<div class="empty">Belum ada jadwal.</div>`; return; }
+      scheduleList.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Hari/Waktu</th><th>Kegiatan</th><th>Ruangan</th><th>Aksi</th></tr></thead><tbody>${filtered.map(row => `
+        <tr><td><strong>${esc(row.day_name)}</strong><br><span class="time small">${time(row.start_time)}–${time(row.end_time)}</span></td><td><strong>${esc(row.subject)}</strong><br><span class="muted small">${esc(row.class_name)} · ${esc(row.lecturer_name)}</span></td><td><span class="badge">${esc(row.room_name)}</span></td><td><div class="actions"><button class="btn small-btn" onclick="editSchedule(${row.id})">Ubah</button><button class="btn danger small-btn" onclick="deleteSchedule(${row.id})">Hapus</button></div></td></tr>`).join("")}</tbody></table></div>`;
+    }
+
+    async function loadSchedules() {
+      try {
+        const order = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+        const result = await api("/.netlify/functions/admin-schedules");
+        rows = (result.data || []).sort((a, b) => order.indexOf(a.day_name) - order.indexOf(b.day_name) || String(a.start_time).localeCompare(String(b.start_time)));
+        renderRows();
+      }
+      catch (error) { scheduleList.innerHTML = `<div class="empty">${esc(error.message)}</div>`; }
+    }
+
+    scheduleForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (start_time.value >= end_time.value) return showMessage("Jam selesai harus setelah jam mulai.", "error");
+      const payload = { id:Number(schedule_id.value || 0), room_id:Number(room_id.value), day_name:day_name.value, start_time:start_time.value, end_time:end_time.value, subject:subject.value.trim(), class_name:class_name.value.trim(), lecturer_name:lecturer_name.value.trim(), schedule_type:schedule_type.value };
+      saveButton.disabled = true;
+      try { const result = await api("/.netlify/functions/admin-schedules", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) }); resetForm(); showMessage(result.message, "success"); await loadSchedules(); }
+      catch (error) { showMessage(error.message, "error"); }
+      finally { saveButton.disabled = false; }
+    });
+    dayFilter.addEventListener("change", renderRows);
+    fetch("/.netlify/functions/get-rooms").then(r => r.json()).then(result => { room_id.innerHTML = `<option value="">Pilih ruangan</option>` + (result.data || []).map(room => `<option value="${room.id}">${esc(room.room_name)}</option>`).join(""); });
+    loadSchedules();
+  </script>
+</body>
+</html>
