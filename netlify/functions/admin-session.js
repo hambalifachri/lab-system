@@ -24,64 +24,65 @@ function systemNim(deviceId) {
   return `999999999${deviceId.slice(-2)}`;
 }
 
-async function setDeviceMode(deviceId, enabled) {
-  const { data: previous } = await supabase
+async function setDevicesMode(devices, enabled) {
+  const previousResult = await supabase
     .from("active_sessions")
-    .select("nim, student_name")
-    .eq("device_id", deviceId)
-    .maybeSingle();
+    .select("nim, student_name, device_id")
+    .in("device_id", devices);
+  if (previousResult.error) throw previousResult.error;
 
-  await supabase.from("active_sessions").delete().eq("device_id", deviceId);
+  const deleteResult = await supabase.from("active_sessions").delete().in("device_id", devices);
+  if (deleteResult.error) throw deleteResult.error;
 
   if (!enabled) {
-    if (previous) {
-      await supabase.from("login_logs").insert({
+    const logoutLogs = (previousResult.data || []).map(previous => ({
         nim: previous.nim,
         nama: previous.student_name || "Akses Tanpa NIM",
         aksi: "logout-admin",
-        computer_name: deviceId,
-        device_id: deviceId
-      });
+        computer_name: previous.device_id,
+        device_id: previous.device_id
+      }));
+    if (logoutLogs.length) {
+      const logResult = await supabase.from("login_logs").insert(logoutLogs);
+      if (logResult.error) throw logResult.error;
     }
     return;
   }
 
-  const nim = systemNim(deviceId);
-  const nama = `Akses Tanpa NIM ${deviceId}`;
   const now = new Date().toISOString();
-
-  const studentResult = await supabase.from("students").upsert({
-    nim,
-    nama,
-    aktif: true
-  }, { onConflict: "nim" });
-  if (studentResult.error) throw studentResult.error;
-
-  const computerResult = await supabase.from("lab_computers").upsert({
-    computer_name: deviceId,
-    device_id: deviceId,
-    last_seen: now,
-    status: "online"
-  }, { onConflict: "device_id" });
-  if (computerResult.error) throw computerResult.error;
-
-  const sessionResult = await supabase.from("active_sessions").insert({
-    nim,
-    student_name: nama,
-    computer_name: deviceId,
-    device_id: deviceId,
+  const students = devices.map(device => ({
+    nim: systemNim(device), nama: `Akses Tanpa NIM ${device}`, aktif: true
+  }));
+  const computers = devices.map(device => ({
+    computer_name: device, device_id: device, last_seen: now, status: "online"
+  }));
+  const sessions = devices.map(device => ({
+    nim: systemNim(device),
+    student_name: `Akses Tanpa NIM ${device}`,
+    computer_name: device,
+    device_id: device,
     status: `active:${now}`,
     last_seen: now
-  });
+  }));
+
+  const studentResult = await supabase.from("students").upsert(students, { onConflict: "nim" });
+  if (studentResult.error) throw studentResult.error;
+
+  const computerResult = await supabase.from("lab_computers").upsert(computers, { onConflict: "device_id" });
+  if (computerResult.error) throw computerResult.error;
+
+  const sessionResult = await supabase.from("active_sessions").insert(sessions);
   if (sessionResult.error) throw sessionResult.error;
 
-  await supabase.from("login_logs").insert({
-    nim,
-    nama,
+  const loginLogs = sessions.map(session => ({
+    nim: session.nim,
+    nama: session.student_name,
     aksi: "login-admin",
-    computer_name: deviceId,
-    device_id: deviceId
-  });
+    computer_name: session.device_id,
+    device_id: session.device_id
+  }));
+  const logResult = await supabase.from("login_logs").insert(loginLogs);
+  if (logResult.error) throw logResult.error;
 }
 
 exports.handler = async function(event) {
@@ -107,9 +108,7 @@ exports.handler = async function(event) {
       ? Array.from({ length: 25 }, (_, index) =>
           `SIPIL-${String(index + 1).padStart(2, "0")}`)
       : [deviceId];
-    for (const device of devices) {
-      await setDeviceMode(device, enabled);
-    }
+    await setDevicesMode(devices, enabled);
 
     return response(200, {
       status: "success",
