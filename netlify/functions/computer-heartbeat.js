@@ -20,6 +20,10 @@ function isLabComputer(name) {
   return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
 }
 
+function isFreeAccessSession(session) {
+  return /^999999999\d{2}$/.test(String(session?.nim || ""));
+}
+
 function sessionStartedAt(session) {
   const marker = session?.status || "";
   const value = marker.startsWith("active:")
@@ -44,7 +48,7 @@ exports.handler = async function(event) {
   try {
     const { data: session, error } = await supabase
       .from('active_sessions')
-      .select('last_seen, status')
+      .select('nim, last_seen, status')
       .eq('device_id', deviceId)
       .maybeSingle();
 
@@ -55,7 +59,8 @@ exports.handler = async function(event) {
       await supabase.from('active_sessions').delete().eq('device_id', deviceId);
       return response(200, { status: "success", logged_in: false });
     }
-    if (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS) {
+    if (!isFreeAccessSession(session) &&
+        (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS)) {
       await supabase.from('active_sessions').delete().eq('device_id', deviceId);
       return response(200, { status: "success", logged_in: false });
     }

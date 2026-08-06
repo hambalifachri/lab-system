@@ -22,6 +22,10 @@ function isLabComputer(name) {
   return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
 }
 
+function isFreeAccessSession(session) {
+  return /^999999999\d{2}$/.test(String(session?.nim || ""));
+}
+
 function isAdmin(context) {
   const token = context.request.headers.get("x-admin-token");
   return Boolean(token && token === context.env.ADMIN_TOKEN);
@@ -104,7 +108,8 @@ async function login(context, supabase) {
     .select("nim, student_name, last_seen")
     .eq("device_id", deviceId)
     .maybeSingle();
-  if (activeDevice && new Date(activeDevice.last_seen).getTime() < Date.now() - SESSION_TIMEOUT_MS) {
+  if (activeDevice && !isFreeAccessSession(activeDevice) &&
+      new Date(activeDevice.last_seen).getTime() < Date.now() - SESSION_TIMEOUT_MS) {
     await supabase.from("active_sessions").delete().eq("device_id", deviceId);
   } else if (activeDevice) {
     return json(409, {
@@ -211,14 +216,15 @@ async function sessionStatus(context, supabase) {
 
   const { data: session, error } = await supabase
     .from("active_sessions")
-    .select("last_seen, status")
+    .select("nim, last_seen, status")
     .eq("device_id", deviceId)
     .maybeSingle();
   if (error) throw error;
 
   const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
   const expired = session && Date.now() - sessionStartedAt(session) >= SESSION_MAX_MS;
-  const inactive = session && (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS);
+  const inactive = session && !isFreeAccessSession(session) &&
+    (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS);
   if (expired || inactive) {
     await supabase.from("active_sessions").delete().eq("device_id", deviceId);
   }
@@ -241,14 +247,15 @@ async function computerHeartbeat(context, supabase) {
 
   const { data: session, error } = await supabase
     .from("active_sessions")
-    .select("last_seen, status")
+    .select("nim, last_seen, status")
     .eq("device_id", deviceId)
     .maybeSingle();
   if (error) throw error;
 
   const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
   const expired = session && Date.now() - sessionStartedAt(session) >= SESSION_MAX_MS;
-  const inactive = session && (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS);
+  const inactive = session && !isFreeAccessSession(session) &&
+    (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS);
   if (expired || inactive) {
     await supabase.from("active_sessions").delete().eq("device_id", deviceId);
     return json(200, { status: "success", logged_in: false });

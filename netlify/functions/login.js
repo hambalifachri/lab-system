@@ -13,6 +13,10 @@ function isLabComputer(name) {
   return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
 }
 
+function isFreeAccessSession(session) {
+  return /^999999999\d{2}$/.test(String(session?.nim || ""));
+}
+
 // ================= RESPONSE HELPER =================
 function response(statusCode, data) {
   return {
@@ -93,7 +97,8 @@ exports.handler = async function(event) {
       .eq('device_id', deviceId)
       .maybeSingle();
 
-    if (activeDevice && new Date(activeDevice.last_seen).getTime() < Date.now() - SESSION_TIMEOUT_MS) {
+    if (activeDevice && !isFreeAccessSession(activeDevice) &&
+        new Date(activeDevice.last_seen).getTime() < Date.now() - SESSION_TIMEOUT_MS) {
       await supabase.from('active_sessions').delete().eq('device_id', deviceId);
     } else if (activeDevice) {
       return response(409, {
