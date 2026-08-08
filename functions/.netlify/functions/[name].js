@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
 const SCHEDULE_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const SCHEDULE_PERIOD_TYPES = ["gasal", "antara_gasal", "genap", "antara_genap"];
 const LAB_RULES = [
   "Peserta wajib login menggunakan NIM masing-masing dan dilarang meminjamkan identitas.",
   "Dilarang memasang atau menghapus aplikasi tanpa izin pengelola laboratorium.",
@@ -543,7 +544,7 @@ async function adminSchedules(context, supabase) {
   if (method(context.request, "GET")) {
     const { data, error } = await supabase
       .from("lab_schedules")
-      .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, schedule_type, semester_label, status, archived_at, lab_rooms(room_name)")
+      .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, schedule_type, semester_label, period_type, period_start, period_end, status, archived_at, lab_rooms(room_name)")
       .order("day_name")
       .order("start_time");
     if (error) throw error;
@@ -585,9 +586,15 @@ async function adminSchedules(context, supabase) {
   const lecturerName = clean(body.lecturer_name);
   const scheduleType = clean(body.schedule_type || "kuliah", 30);
   const semesterLabel = clean(body.semester_label || "Belum ditentukan", 80);
+  const periodType = clean(body.period_type, 30);
+  const periodStart = clean(body.period_start, 10);
+  const periodEnd = clean(body.period_end, 10);
 
-  if (!roomId || !SCHEDULE_DAYS.includes(dayName) || !startTime || !endTime || !subject) {
+  if (!roomId || !SCHEDULE_DAYS.includes(dayName) || !startTime || !endTime || !subject || !semesterLabel || !SCHEDULE_PERIOD_TYPES.includes(periodType)) {
     return json(400, { status: "error", message: "Data jadwal belum lengkap" });
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(periodStart) || !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd) || periodStart > periodEnd) {
+    return json(400, { status: "error", message: "Periode tanggal jadwal tidak valid" });
   }
   if (startTime >= endTime) {
     return json(400, { status: "error", message: "Jam selesai harus setelah jam mulai" });
@@ -600,7 +607,7 @@ async function adminSchedules(context, supabase) {
 
   let conflictQuery = supabase
     .from("lab_schedules")
-    .select("id, start_time, end_time, subject")
+    .select("id, start_time, end_time, subject, period_start, period_end")
     .eq("room_id", roomId)
     .eq("day_name", dayName)
     .eq("status", "active");
@@ -608,6 +615,7 @@ async function adminSchedules(context, supabase) {
   const conflictResult = await conflictQuery;
   if (conflictResult.error) throw conflictResult.error;
   const conflict = (conflictResult.data || []).find(item =>
+    periodStart <= item.period_end && periodEnd >= item.period_start &&
     isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
   );
   if (conflict) {
@@ -624,6 +632,9 @@ async function adminSchedules(context, supabase) {
     lecturer_name: lecturerName,
     schedule_type: scheduleType,
     semester_label: semesterLabel,
+    period_type: periodType,
+    period_start: periodStart,
+    period_end: periodEnd,
     status: "active"
   };
   const result = id
@@ -695,7 +706,9 @@ async function createBooking(context, supabase) {
     .select("start_time, end_time")
     .eq("room_id", roomId)
     .eq("day_name", dayName)
-    .eq("status", "active");
+    .eq("status", "active")
+    .lte("period_start", bookingDate)
+    .gte("period_end", bookingDate);
   if (scheduleError) throw scheduleError;
   const scheduleConflict = (schedules || []).some(item =>
     isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
@@ -817,7 +830,9 @@ async function updateBookingStatus(context, supabase) {
         .select("start_time, end_time")
         .eq("room_id", booking.room_id)
         .eq("day_name", booking.day_name)
-        .eq("status", "active"),
+        .eq("status", "active")
+        .lte("period_start", booking.booking_date)
+        .gte("period_end", booking.booking_date),
       supabase.from("lab_bookings")
         .select("id, start_time, end_time")
         .eq("room_id", booking.room_id)

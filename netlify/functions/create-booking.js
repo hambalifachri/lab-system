@@ -130,7 +130,9 @@ exports.handler = async function(event) {
       .select('start_time, end_time')
       .eq('room_id', roomId)
       .eq('day_name', dayName)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .lte('period_start', bookingDate)
+      .gte('period_end', bookingDate);
 
     if (scheduleError) throw scheduleError;
 

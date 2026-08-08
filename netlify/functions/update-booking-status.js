@@ -69,7 +69,9 @@ exports.handler = async function(event) {
           .select('start_time, end_time')
           .eq('room_id', booking.room_id)
           .eq('day_name', booking.day_name)
-          .eq('status', 'active'),
+          .eq('status', 'active')
+          .lte('period_start', booking.booking_date)
+          .gte('period_end', booking.booking_date),
         supabase.from('lab_bookings')
           .select('id, start_time, end_time')
           .eq('room_id', booking.room_id)

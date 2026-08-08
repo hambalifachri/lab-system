@@ -23,6 +23,9 @@ create table if not exists public.lab_schedules (
   schedule_type text not null default 'kuliah',
   status text not null default 'active',
   semester_label text not null default 'Belum ditentukan',
+  period_type text not null default 'gasal',
+  period_start date not null default current_date,
+  period_end date not null default current_date,
   archived_at timestamptz,
   created_at timestamptz not null default now()
 );
@@ -51,6 +54,9 @@ create table if not exists public.lab_bookings (
 
 alter table public.lab_schedules
   add column if not exists semester_label text not null default 'Belum ditentukan',
+  add column if not exists period_type text not null default 'gasal',
+  add column if not exists period_start date not null default current_date,
+  add column if not exists period_end date not null default current_date,
   add column if not exists archived_at timestamptz;
 
 create index if not exists lab_schedules_room_day_idx
@@ -73,10 +79,14 @@ select
   s.lecturer_name,
   s.schedule_type,
   s.semester_label,
+  s.period_type,
+  s.period_start,
+  s.period_end,
   s.status
 from public.lab_schedules s
 join public.lab_rooms r on r.id = s.room_id
-where s.status = 'active';
+where s.status = 'active'
+  and current_date between s.period_start and s.period_end;
 
 create or replace view public.lab_booking_view as
 select

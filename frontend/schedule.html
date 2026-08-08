@@ -60,7 +60,7 @@
     function scheduleTable(rows) {
       if (!rows.length) return `<div class="empty">Belum ada jadwal tetap pada ${selectedDay}.</div>`;
       return `<div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Kegiatan</th><th>Ruangan</th></tr></thead><tbody>${rows.map(row => `
-        <tr><td class="time">${time(row.start_time)}–${time(row.end_time)}</td><td><strong>${esc(row.subject)}</strong><br><span class="muted small">${esc(row.class_name)} · ${esc(row.lecturer_name)}</span></td><td><span class="badge">${esc(row.room_name)}</span></td></tr>`).join("")}</tbody></table></div>`;
+        <tr><td class="time">${time(row.start_time)}–${time(row.end_time)}</td><td><strong>${esc(row.subject)}</strong><br><span class="muted small">${esc(row.class_name)} · ${esc(row.lecturer_name)}</span><br><span class="muted small">${esc(row.semester_label)}: ${esc(row.period_start)} s.d. ${esc(row.period_end)}</span></td><td><span class="badge">${esc(row.room_name)}</span></td></tr>`).join("")}</tbody></table></div>`;
     }
 
     function bookingTable(rows) {
@@ -77,9 +77,9 @@
 
     function csvCell(value) { return `"${String(value ?? "").replaceAll('"', '""')}"`; }
     function exportSchedule() {
-      const header = ["Jenis","Hari","Tanggal","Mulai","Selesai","Ruangan","Kegiatan","Kelas/Peminjam","Dosen/Keperluan"];
-      const fixed = schedules.map(row => ["Jadwal Tetap",row.day_name,"",time(row.start_time),time(row.end_time),row.room_name,row.subject,row.class_name,row.lecturer_name]);
-      const approved = bookings.map(row => ["Booking",row.day_name,row.booking_date,time(row.start_time),time(row.end_time),row.room_name,row.purpose,row.borrower_name,row.purpose]);
+      const header = ["Jenis","Hari","Tanggal","Mulai","Selesai","Ruangan","Kegiatan","Kelas/Peminjam","Dosen/Keperluan","Semester","Periode Mulai","Periode Selesai"];
+      const fixed = schedules.map(row => ["Jadwal Tetap",row.day_name,"",time(row.start_time),time(row.end_time),row.room_name,row.subject,row.class_name,row.lecturer_name,row.semester_label,row.period_start,row.period_end]);
+      const approved = bookings.map(row => ["Booking",row.day_name,row.booking_date,time(row.start_time),time(row.end_time),row.room_name,row.purpose,row.borrower_name,row.purpose,"","",""]);
       const csv = [header,...fixed,...approved].map(columns => columns.map(csvCell).join(",")).join("\r\n");
       const link = document.createElement("a");
       link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv;charset=utf-8" }));
