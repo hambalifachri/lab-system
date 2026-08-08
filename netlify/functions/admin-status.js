@@ -22,6 +22,12 @@ function isAdmin(event) {
   return token && token === process.env.ADMIN_TOKEN;
 }
 
+function roomForComputer(name) {
+  if (String(name || '').startsWith('SIPIL-')) return 'Lab C.413';
+  if (String(name || '').startsWith('ARSITEKTUR-')) return 'Lab C.405';
+  return '-';
+}
+
 // ================= ADMIN STATUS FUNCTION =================
 exports.handler = async function(event) {
   if (event.httpMethod !== "GET") {
@@ -53,7 +59,10 @@ exports.handler = async function(event) {
 
     return response(200, {
       status: "success",
-      data: data
+      data: (data || []).map(row => ({
+        ...row,
+        room: roomForComputer(row.computer_name)
+      }))
     });
 
   } catch (error) {

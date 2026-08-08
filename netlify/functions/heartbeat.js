@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 function isLabComputer(name) {
-  return /^SIPIL-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
+  return /^(SIPIL|ARSITEKTUR)-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
 }
 
 // ================= RESPONSE HELPER =================
