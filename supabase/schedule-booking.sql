@@ -26,6 +26,8 @@ create table if not exists public.lab_schedules (
   period_type text not null default 'gasal',
   period_start date not null default current_date,
   period_end date not null default current_date,
+  participant_count integer not null default 0,
+  participant_nims text[] not null default '{}',
   archived_at timestamptz,
   created_at timestamptz not null default now()
 );

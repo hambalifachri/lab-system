@@ -544,7 +544,7 @@ async function adminSchedules(context, supabase) {
   if (method(context.request, "GET")) {
     const { data, error } = await supabase
       .from("lab_schedules")
-      .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, schedule_type, semester_label, period_type, period_start, period_end, status, archived_at, lab_rooms(room_name)")
+      .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, schedule_type, semester_label, period_type, period_start, period_end, participant_count, participant_nims, status, archived_at, lab_rooms(room_name)")
       .order("day_name")
       .order("start_time");
     if (error) throw error;
@@ -634,6 +634,9 @@ async function adminSchedules(context, supabase) {
   const periodType = clean(body.period_type, 30);
   const periodStart = clean(body.period_start, 10);
   const periodEnd = clean(body.period_end, 10);
+  const participantNims = [...new Set((Array.isArray(body.participant_nims) ? body.participant_nims : [])
+    .map(item => clean(item, 11)).filter(Boolean))];
+  const participantCount = Number(body.participant_count ?? participantNims.length);
 
   if (!roomId || !SCHEDULE_DAYS.includes(dayName) || !startTime || !endTime || !subject || !semesterLabel || !SCHEDULE_PERIOD_TYPES.includes(periodType)) {
     return json(400, { status: "error", message: "Data jadwal belum lengkap" });
@@ -643,6 +646,10 @@ async function adminSchedules(context, supabase) {
   }
   if (startTime >= endTime) {
     return json(400, { status: "error", message: "Jam selesai harus setelah jam mulai" });
+  }
+  if (!Number.isInteger(participantCount) || participantCount < 0 || participantCount > 200 ||
+      participantNims.length !== participantCount || participantNims.some(nim => !/^\d{11}$/.test(nim))) {
+    return json(400, { status: "error", message: "Daftar NIM harus unik, 11 digit, dan maksimal 200 mahasiswa" });
   }
 
   const roomResult = await supabase.from("lab_rooms").select("id").eq("id", roomId).maybeSingle();
@@ -680,6 +687,8 @@ async function adminSchedules(context, supabase) {
     period_type: periodType,
     period_start: periodStart,
     period_end: periodEnd,
+    participant_count: participantCount,
+    participant_nims: participantNims,
     status: "active"
   };
   const result = id
