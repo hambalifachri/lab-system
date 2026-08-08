@@ -1,5 +1,6 @@
 // ================= IMPORT LIBRARY =================
 const { createClient } = require('@supabase/supabase-js');
+const { randomBytes } = require('crypto');
 
 // ================= SETUP SUPABASE =================
 const supabase = createClient(
@@ -32,6 +33,10 @@ function clean(value, maxLength = 160) {
   return String(value || "").trim().slice(0, maxLength);
 }
 
+function createBookingCode(bookingDate) {
+  return `LAB-${bookingDate.replaceAll('-', '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
+}
+
 // ================= CREATE BOOKING FUNCTION =================
 exports.handler = async function(event) {
   if (event.httpMethod !== "POST") {
@@ -52,6 +57,12 @@ exports.handler = async function(event) {
     const borrowerRole = clean(body.borrower_role, 20);
     const borrowerContact = clean(body.borrower_contact, 120);
     const purpose = clean(body.purpose, 500);
+    const bookingCategory = clean(body.booking_category || 'perkuliahan', 30);
+    const className = clean(body.class_name, 120);
+    const participantCount = Number(body.participant_count || 0);
+    const participantNims = [...new Set(Array.isArray(body.participant_nims)
+      ? body.participant_nims.map(item => clean(item, 11)).filter(Boolean)
+      : [])];
 
     if (!roomId || !bookingDate || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact || !purpose) {
       return response(400, {
@@ -65,6 +76,18 @@ exports.handler = async function(event) {
         status: "error",
         message: "Peminjam hanya boleh Dosen atau Staff"
       });
+    }
+
+    if (!['perkuliahan', 'ujian', 'pelatihan', 'lainnya'].includes(bookingCategory)) {
+      return response(400, { status: "error", message: "Jenis kegiatan tidak valid" });
+    }
+
+    if (!className || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > 25) {
+      return response(400, { status: "error", message: "Kelas/prodi dan jumlah peserta 1-25 wajib diisi" });
+    }
+
+    if (participantNims.some(nim => !/^\d{11}$/.test(nim)) || participantNims.length > participantCount) {
+      return response(400, { status: "error", message: "Daftar NIM tidak valid atau melebihi jumlah peserta" });
     }
 
     const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -144,6 +167,7 @@ exports.handler = async function(event) {
     }
 
     // ================= SIMPAN BOOKING =================
+    const bookingCode = createBookingCode(bookingDate);
     const { error } = await supabase
       .from('lab_bookings')
       .insert({
@@ -156,6 +180,11 @@ exports.handler = async function(event) {
         borrower_role: borrowerRole,
         borrower_contact: borrowerContact,
         purpose,
+        booking_code: bookingCode,
+        booking_category: bookingCategory,
+        class_name: className,
+        participant_count: participantCount,
+        participant_nims: participantNims,
         status: "pending"
       });
 
@@ -168,7 +197,8 @@ exports.handler = async function(event) {
 
     return response(200, {
       status: "success",
-      message: "Pengajuan peminjaman berhasil dikirim dan menunggu persetujuan admin"
+      message: "Pengajuan berhasil dikirim dan menunggu persetujuan admin",
+      booking_code: bookingCode
     });
 
   } catch (error) {

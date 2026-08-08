@@ -7,26 +7,30 @@
   <link rel="stylesheet" href="/lab.css">
 </head>
 <body>
-  <main class="page" style="max-width:800px">
+  <main class="page" style="max-width:860px">
     <header class="topbar">
       <div class="brand"><div class="logo">L</div><div><h1>Booking Laboratorium</h1><div class="muted small">Ajukan penggunaan ruangan di luar jadwal tetap.</div></div></div>
-      <nav class="nav"><a class="btn secondary" href="/schedule.html">Lihat Jadwal</a></nav>
+      <nav class="nav"><a class="btn secondary" href="/schedule.html">Lihat Jadwal</a><a class="btn secondary" href="/booking-status.html">Cek Status</a></nav>
     </header>
 
     <section class="card">
-      <div class="card-head"><div><h2>Form Pengajuan</h2><span class="muted small">Untuk dosen dan staf · Senin–Sabtu, 08.00–16.00</span></div></div>
+      <div class="card-head"><div><h2>Form Pengajuan</h2><span class="muted small">Untuk dosen dan staf, Senin-Sabtu pukul 08.00-16.00.</span></div></div>
       <form id="bookingForm" class="card-body">
         <div class="form-grid">
-          <div class="field"><label for="room_id">Ruangan</label><select id="room_id" required><option value="">Memuat ruangan…</option></select></div>
-          <div class="field"><label for="booking_date">Tanggal</label><input id="booking_date" type="date" required></div>
-          <div class="field"><label for="start_time">Jam mulai</label><input id="start_time" type="time" min="08:00" max="16:00" required></div>
-          <div class="field"><label for="end_time">Jam selesai</label><input id="end_time" type="time" min="08:00" max="16:00" required></div>
-          <div class="field"><label for="borrower_name">Nama peminjam</label><input id="borrower_name" maxlength="120" autocomplete="name" placeholder="Nama lengkap" required></div>
-          <div class="field"><label for="borrower_role">Peran</label><select id="borrower_role" required><option value="Dosen">Dosen</option><option value="Staff">Staf</option></select></div>
-          <div class="field full"><label for="borrower_contact">Kontak aktif</label><input id="borrower_contact" maxlength="120" placeholder="Nomor WhatsApp atau email" required></div>
-          <div class="field full"><label for="purpose">Keperluan</label><textarea id="purpose" maxlength="500" placeholder="Contoh: ujian, praktikum tambahan, pelatihan, atau workshop" required></textarea></div>
+          <div class="field"><label for="room_id">Ruangan *</label><select id="room_id" required><option value="">Memuat ruangan...</option></select></div>
+          <div class="field"><label for="booking_date">Tanggal *</label><input id="booking_date" type="date" required></div>
+          <div class="field"><label for="start_time">Jam mulai *</label><input id="start_time" type="time" min="08:00" max="16:00" required></div>
+          <div class="field"><label for="end_time">Jam selesai *</label><input id="end_time" type="time" min="08:00" max="16:00" required></div>
+          <div class="field"><label for="borrower_name">Nama penanggung jawab *</label><input id="borrower_name" maxlength="120" autocomplete="name" required></div>
+          <div class="field"><label for="borrower_role">Peran *</label><select id="borrower_role" required><option value="Dosen">Dosen</option><option value="Staff">Staf</option></select></div>
+          <div class="field"><label for="booking_category">Jenis kegiatan *</label><select id="booking_category" required><option value="perkuliahan">Perkuliahan/praktikum</option><option value="ujian">Ujian</option><option value="pelatihan">Pelatihan/workshop</option><option value="lainnya">Kegiatan lainnya</option></select></div>
+          <div class="field"><label for="class_name">Kelas/Prodi *</label><input id="class_name" maxlength="120" placeholder="Contoh: Teknik Sipil 4A" required></div>
+          <div class="field"><label for="participant_count">Jumlah peserta *</label><input id="participant_count" type="number" min="1" max="25" required></div>
+          <div class="field"><label for="borrower_contact">Kontak aktif *</label><input id="borrower_contact" maxlength="120" placeholder="Nomor WhatsApp atau email" required></div>
+          <div class="field full"><label for="participant_file">Daftar NIM peserta (CSV/TXT, opsional)</label><input id="participant_file" type="file" accept=".csv,.txt,text/csv,text/plain"><div id="nimSummary" class="muted small" style="margin-top:7px">Belum ada daftar NIM. Data ini hanya terlihat oleh admin.</div><button class="btn secondary small-btn" type="button" style="margin-top:9px" onclick="downloadTemplate()">Unduh Template CSV</button></div>
+          <div class="field full"><label for="purpose">Keperluan *</label><textarea id="purpose" maxlength="500" placeholder="Jelaskan tujuan penggunaan laboratorium" required></textarea></div>
         </div>
-        <div class="notice section-space">Sistem otomatis menolak jadwal yang bentrok. Pengajuan baru tampil di jadwal publik setelah disetujui admin.</div>
+        <div class="notice section-space">Pengajuan yang tidak bentrok akan masuk ke admin. Simpan kode booking untuk memeriksa hasil persetujuan dan membaca peraturan lab.</div>
         <div id="message" class="status-message" role="alert"></div>
         <div class="actions section-space"><button id="submitButton" class="btn" type="submit">Kirim Pengajuan</button><a class="btn secondary" href="/schedule.html">Batal</a></div>
       </form>
@@ -38,55 +42,63 @@
     const message = document.getElementById("message");
     const submitButton = document.getElementById("submitButton");
     const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    let participantNims = [];
     booking_date.min = today;
 
-    function showMessage(text, type) {
-      message.textContent = text;
-      message.className = `status-message show ${type}`;
+    function showMessage(text, type) { message.textContent = text; message.className = `status-message show ${type}`; }
+    function downloadText(filename, text) {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob(["\ufeff" + text], { type: "text/csv;charset=utf-8" }));
+      link.download = filename; link.click(); URL.revokeObjectURL(link.href);
     }
+    function downloadTemplate() { downloadText("template-nim-peserta.csv", "nim\n00000000000\n"); }
+
+    participant_file.addEventListener("change", async () => {
+      participantNims = [];
+      const file = participant_file.files[0];
+      if (!file) { nimSummary.textContent = "Belum ada daftar NIM. Data ini hanya terlihat oleh admin."; return; }
+      try {
+        const matches = (await file.text()).match(/\b\d{11}\b/g) || [];
+        participantNims = [...new Set(matches)];
+        if (!participantNims.length) throw new Error("Tidak ditemukan NIM 11 digit dalam file.");
+        if (participantNims.length > 25) throw new Error("Maksimal 25 NIM peserta.");
+        nimSummary.textContent = `${participantNims.length} NIM berhasil dibaca dan hanya dapat dilihat admin.`;
+      } catch (error) {
+        participant_file.value = ""; participantNims = []; showMessage(error.message, "error");
+      }
+    });
 
     fetch("/.netlify/functions/get-rooms")
       .then(response => response.json())
       .then(result => {
         if (result.status !== "success" || !result.data.length) throw new Error();
         room_id.innerHTML = `<option value="">Pilih ruangan</option>` + result.data.map(room =>
-          `<option value="${Number(room.id)}">${String(room.room_name).replace(/[&<>"]/g, "")}</option>`
-        ).join("");
+          `<option value="${Number(room.id)}">${String(room.room_name).replace(/[&<>"]/g, "")}</option>`).join("");
       })
-      .catch(() => {
-        room_id.innerHTML = `<option value="1">Lab C.413</option><option value="2">Lab C.405</option>`;
-      });
+      .catch(() => { room_id.innerHTML = `<option value="1">Lab C.413</option><option value="2">Lab C.405</option>`; });
 
     form.addEventListener("submit", async event => {
-      event.preventDefault();
-      message.className = "status-message";
+      event.preventDefault(); message.className = "status-message";
       if (start_time.value >= end_time.value) return showMessage("Jam selesai harus setelah jam mulai.", "error");
       if (new Date(booking_date.value + "T00:00:00").getDay() === 0) return showMessage("Lab tidak dapat dibooking pada hari Minggu.", "error");
+      if (participantNims.length > Number(participant_count.value)) return showMessage("Jumlah NIM melebihi jumlah peserta.", "error");
 
       const payload = {
-        room_id: Number(room_id.value), booking_date: booking_date.value,
-        start_time: start_time.value, end_time: end_time.value,
-        borrower_name: borrower_name.value.trim(), borrower_role: borrower_role.value,
-        borrower_contact: borrower_contact.value.trim(), purpose: purpose.value.trim()
+        room_id: Number(room_id.value), booking_date: booking_date.value, start_time: start_time.value, end_time: end_time.value,
+        borrower_name: borrower_name.value.trim(), borrower_role: borrower_role.value, borrower_contact: borrower_contact.value.trim(),
+        booking_category: booking_category.value, class_name: class_name.value.trim(), participant_count: Number(participant_count.value),
+        participant_nims: participantNims, purpose: purpose.value.trim()
       };
 
-      submitButton.disabled = true;
-      submitButton.textContent = "Mengirim…";
+      submitButton.disabled = true; submitButton.textContent = "Mengirim...";
       try {
-        const response = await fetch("/.netlify/functions/create-booking", {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-        });
+        const response = await fetch("/.netlify/functions/create-booking", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
         const result = await response.json();
         if (!response.ok || result.status !== "success") throw new Error(result.message || "Pengajuan gagal");
-        form.reset();
-        booking_date.min = today;
-        showMessage(result.message, "success");
-      } catch (error) {
-        showMessage(error.message || "Tidak dapat terhubung ke server.", "error");
-      } finally {
-        submitButton.disabled = false;
-        submitButton.textContent = "Kirim Pengajuan";
-      }
+        localStorage.setItem("last_booking_code", result.booking_code);
+        location.href = `/booking-status.html?code=${encodeURIComponent(result.booking_code)}`;
+      } catch (error) { showMessage(error.message || "Tidak dapat terhubung ke server.", "error"); }
+      finally { submitButton.disabled = false; submitButton.textContent = "Kirim Pengajuan"; }
     });
   </script>
 </body>

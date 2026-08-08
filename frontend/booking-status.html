@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Status Booking Laboratorium</title>
+  <link rel="stylesheet" href="/lab.css">
+</head>
+<body>
+  <main class="page" style="max-width:860px">
+    <header class="topbar no-print">
+      <div class="brand"><div class="logo">L</div><div><h1>Status Booking</h1><div class="muted small">Periksa persetujuan dan peraturan laboratorium.</div></div></div>
+      <nav class="nav"><a class="btn secondary" href="/booking.html">Booking Baru</a><a class="btn secondary" href="/schedule.html">Jadwal</a></nav>
+    </header>
+
+    <section class="card no-print" style="margin-bottom:18px">
+      <form id="searchForm" class="card-body">
+        <label for="codeInput">Kode booking</label>
+        <div class="actions"><input id="codeInput" style="flex:1;min-width:220px;text-transform:uppercase" placeholder="LAB-YYYYMMDD-XXXXXXXX" required><button class="btn" type="submit">Periksa Status</button></div>
+      </form>
+    </section>
+
+    <div id="message" class="status-message" role="alert"></div>
+    <section id="resultCard" class="card" hidden>
+      <div class="card-head"><div><h2 id="resultTitle">Bukti Pengajuan Lab</h2><span id="codeLabel" class="muted small"></span></div><span id="statusBadge" class="badge"></span></div>
+      <div class="card-body">
+        <div id="bookingDetail" class="detail-grid"></div>
+        <div id="adminNote" class="notice section-space" hidden></div>
+        <section id="rulesSection" class="section-space" hidden>
+          <h2>Peraturan Laboratorium</h2>
+          <ol id="rulesList" class="rules-list"></ol>
+          <label id="acceptBox" class="accept-box no-print"><input id="acceptRules" type="checkbox"> Saya sebagai penanggung jawab telah membaca, memahami, dan menyetujui seluruh peraturan laboratorium.</label>
+          <div id="acceptedNotice" class="status-message success" style="margin-top:12px"></div>
+          <div class="actions section-space no-print"><button id="acceptButton" class="btn success" type="button">Setujui Peraturan</button><button class="btn secondary" type="button" onclick="window.print()">Cetak / Simpan PDF</button></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const labels = { pending:"Menunggu persetujuan", approved:"Disetujui", rejected:"Ditolak", cancelled:"Dibatalkan" };
+    const categories = { perkuliahan:"Perkuliahan/praktikum", ujian:"Ujian", pelatihan:"Pelatihan/workshop", lainnya:"Kegiatan lainnya" };
+    let currentCode = "";
+    const esc = value => String(value ?? "-").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+    const time = value => value ? value.slice(0,5) : "-";
+    const date = value => value ? new Date(value + "T00:00:00").toLocaleDateString("id-ID", { weekday:"long", day:"2-digit", month:"long", year:"numeric" }) : "-";
+
+    function showMessage(text, type) { message.textContent = text; message.className = `status-message show ${type}`; }
+    function detail(label, value) { return `<div class="detail-item"><span>${label}</span><strong>${esc(value)}</strong></div>`; }
+
+    async function loadStatus(code) {
+      currentCode = String(code || "").trim().toUpperCase();
+      if (!currentCode) return;
+      message.className = "status-message"; resultCard.hidden = true;
+      try {
+        const response = await fetch(`/.netlify/functions/booking-status?code=${encodeURIComponent(currentCode)}`, { cache:"no-store" });
+        const result = await response.json();
+        if (!response.ok || result.status !== "success") throw new Error(result.message || "Status tidak ditemukan");
+        const row = result.data;
+        localStorage.setItem("last_booking_code", currentCode); codeInput.value = currentCode;
+        codeLabel.textContent = currentCode; statusBadge.textContent = labels[row.status] || row.status; statusBadge.className = `badge ${row.status}`;
+        bookingDetail.innerHTML = detail("Ruangan", row.room_name) + detail("Tanggal", date(row.booking_date)) + detail("Waktu", `${time(row.start_time)}-${time(row.end_time)}`) + detail("Penanggung jawab", row.borrower_name) + detail("Kelas/Prodi", row.class_name) + detail("Jumlah peserta", `${row.participant_count} orang`) + detail("Jenis kegiatan", categories[row.booking_category] || row.booking_category) + detail("Keperluan", row.purpose);
+        adminNote.hidden = !row.admin_note; adminNote.textContent = row.admin_note ? `Catatan admin: ${row.admin_note}` : "";
+        rulesSection.hidden = row.status !== "approved";
+        rulesList.innerHTML = (result.rules || []).map(rule => `<li>${esc(rule)}</li>`).join("");
+        const accepted = Boolean(row.rules_accepted_at);
+        acceptBox.hidden = accepted; acceptButton.hidden = accepted;
+        acceptedNotice.className = accepted ? "status-message show success" : "status-message success";
+        acceptedNotice.textContent = accepted ? `Peraturan telah disetujui pada ${new Date(row.rules_accepted_at).toLocaleString("id-ID")}.` : "";
+        resultCard.hidden = false;
+      } catch (error) { showMessage(error.message, "error"); }
+    }
+
+    searchForm.addEventListener("submit", event => { event.preventDefault(); loadStatus(codeInput.value); });
+    acceptButton.addEventListener("click", async () => {
+      if (!acceptRules.checked) return showMessage("Centang persetujuan peraturan terlebih dahulu.", "error");
+      acceptButton.disabled = true;
+      try {
+        const response = await fetch("/.netlify/functions/booking-status", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ code:currentCode, accepted:true }) });
+        const result = await response.json();
+        if (!response.ok || result.status !== "success") throw new Error(result.message);
+        showMessage(result.message, "success"); await loadStatus(currentCode);
+      } catch (error) { showMessage(error.message || "Persetujuan gagal", "error"); }
+      finally { acceptButton.disabled = false; }
+    });
+
+    const initialCode = new URLSearchParams(location.search).get("code") || localStorage.getItem("last_booking_code") || "";
+    if (initialCode) { codeInput.value = initialCode; loadStatus(initialCode); }
+  </script>
+</body>
+</html>

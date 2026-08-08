@@ -92,7 +92,8 @@ exports.handler = async function(event) {
       .from('lab_bookings')
       .update({
         status: status,
-        admin_note: adminNote
+        admin_note: adminNote,
+        rules_accepted_at: null
       })
       .eq('id', id);
 

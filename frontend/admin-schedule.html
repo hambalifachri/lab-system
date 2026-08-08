@@ -10,7 +10,7 @@
   <main class="page">
     <header class="topbar">
       <div class="brand"><div class="logo">A</div><div><h1>Kelola Jadwal Tetap</h1><div class="muted small">Tambah, ubah, dan hapus jadwal kuliah atau praktikum.</div></div></div>
-      <nav class="nav"><a class="btn secondary" href="/admin.html">PC Lab</a><a class="btn secondary" href="/admin-booking.html">Booking</a><a class="btn" href="/schedule.html">Jadwal Publik</a></nav>
+      <nav class="nav"><a class="btn secondary" href="/admin.html">PC Lab</a><a class="btn secondary" href="/admin-booking.html">Booking</a><button class="btn secondary" type="button" onclick="exportSchedules()">Export CSV</button><a class="btn" href="/schedule.html">Jadwal Publik</a></nav>
     </header>
 
     <section class="grid-2 schedule-admin-grid">
@@ -79,6 +79,15 @@
       if (!filtered.length) { scheduleList.innerHTML = `<div class="empty">Belum ada jadwal.</div>`; return; }
       scheduleList.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Hari/Waktu</th><th>Kegiatan</th><th>Ruangan</th><th>Aksi</th></tr></thead><tbody>${filtered.map(row => `
         <tr><td><strong>${esc(row.day_name)}</strong><br><span class="time small">${time(row.start_time)}–${time(row.end_time)}</span></td><td><strong>${esc(row.subject)}</strong><br><span class="muted small">${esc(row.class_name)} · ${esc(row.lecturer_name)}</span></td><td><span class="badge">${esc(row.room_name)}</span></td><td><div class="actions"><button class="btn small-btn" onclick="editSchedule(${row.id})">Ubah</button><button class="btn danger small-btn" onclick="deleteSchedule(${row.id})">Hapus</button></div></td></tr>`).join("")}</tbody></table></div>`;
+    }
+
+    function csvCell(value) { return `"${String(value ?? "").replaceAll('"', '""')}"`; }
+    function exportSchedules() {
+      const filtered = rows.filter(row => !dayFilter.value || row.day_name === dayFilter.value);
+      const header = ["Hari","Mulai","Selesai","Ruangan","Kegiatan","Kelas/Prodi","Dosen/Penanggung Jawab","Jenis"];
+      const csv = [header,...filtered.map(row => [row.day_name,time(row.start_time),time(row.end_time),row.room_name,row.subject,row.class_name,row.lecturer_name,row.schedule_type])].map(columns => columns.map(csvCell).join(",")).join("\r\n");
+      const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv;charset=utf-8" }));
+      link.download = `jadwal-tetap-${new Date().toISOString().slice(0,10)}.csv`; link.click(); URL.revokeObjectURL(link.href);
     }
 
     async function loadSchedules() {

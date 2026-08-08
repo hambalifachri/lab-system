@@ -38,6 +38,12 @@ create table if not exists public.lab_bookings (
   purpose text not null,
   status text not null default 'pending',
   admin_note text,
+  booking_code text not null unique,
+  booking_category text not null default 'perkuliahan',
+  class_name text,
+  participant_count integer not null default 1,
+  participant_nims text[] not null default '{}',
+  rules_accepted_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -79,7 +85,13 @@ select
   b.purpose,
   b.status,
   b.admin_note,
-  b.created_at
+  b.created_at,
+  b.booking_code,
+  b.booking_category,
+  b.class_name,
+  b.participant_count,
+  b.participant_nims,
+  b.rules_accepted_at
 from public.lab_bookings b
 join public.lab_rooms r on r.id = b.room_id;
 

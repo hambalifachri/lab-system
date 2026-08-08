@@ -3,6 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
 const SCHEDULE_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const LAB_RULES = [
+  "Peserta wajib login menggunakan NIM masing-masing dan dilarang meminjamkan identitas.",
+  "Dilarang memasang atau menghapus aplikasi tanpa izin pengelola laboratorium.",
+  "Dilarang mengubah konfigurasi komputer, jaringan, kabel, atau perangkat laboratorium.",
+  "Penanggung jawab memastikan ruangan tetap bersih, rapi, dan seluruh perangkat digunakan dengan baik.",
+  "Kerusakan atau kendala wajib segera dilaporkan kepada pengelola laboratorium.",
+  "Kegiatan harus selesai sesuai waktu booking dan ruangan ditinggalkan dalam keadaan tertib."
+];
 
 function json(status, body) {
   return new Response(JSON.stringify(body), {
@@ -70,6 +78,16 @@ function isOverlap(startA, endA, startB, endB) {
 
 function clean(value, maxLength = 120) {
   return String(value || "").trim().slice(0, maxLength);
+}
+
+function createBookingCode(bookingDate) {
+  const bytes = crypto.getRandomValues(new Uint8Array(4));
+  const random = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+  return `LAB-${bookingDate.replaceAll("-", "")}-${random}`;
+}
+
+function validBookingCode(value) {
+  return /^LAB-[A-Z0-9-]{8,32}$/.test(value || "");
 }
 
 async function login(context, supabase) {
@@ -466,7 +484,7 @@ async function getSchedule(context, supabase) {
   const schedulesResult = await supabase.from("lab_schedule_view").select("*");
   const bookingsResult = await supabase
     .from("lab_booking_view")
-    .select("*")
+    .select("id, room_name, booking_date, day_name, start_time, end_time, borrower_name, borrower_role, purpose, status, booking_category, class_name, participant_count")
     .eq("status", "approved");
   if (schedulesResult.error || bookingsResult.error) {
     return json(500, { status: "error", message: "Gagal mengambil jadwal" });
@@ -595,12 +613,27 @@ async function createBooking(context, supabase) {
   const borrowerRole = clean(body.borrower_role, 20);
   const borrowerContact = clean(body.borrower_contact, 120);
   const purpose = clean(body.purpose, 500);
+  const bookingCategory = clean(body.booking_category || "perkuliahan", 30);
+  const className = clean(body.class_name, 120);
+  const participantCount = Number(body.participant_count || 0);
+  const participantNims = [...new Set(Array.isArray(body.participant_nims)
+    ? body.participant_nims.map(item => clean(item, 11)).filter(Boolean)
+    : [])];
 
   if (!roomId || !bookingDate || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact || !purpose) {
     return json(400, { status: "error", message: "Data peminjaman belum lengkap" });
   }
   if (!["Dosen", "Staff"].includes(borrowerRole)) {
     return json(400, { status: "error", message: "Peminjam hanya boleh Dosen atau Staff" });
+  }
+  if (!["perkuliahan", "ujian", "pelatihan", "lainnya"].includes(bookingCategory)) {
+    return json(400, { status: "error", message: "Jenis kegiatan tidak valid" });
+  }
+  if (!className || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > 25) {
+    return json(400, { status: "error", message: "Kelas/prodi dan jumlah peserta 1-25 wajib diisi" });
+  }
+  if (participantNims.some(nim => !/^\d{11}$/.test(nim)) || participantNims.length > participantCount) {
+    return json(400, { status: "error", message: "Daftar NIM tidak valid atau melebihi jumlah peserta" });
   }
   const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) || bookingDate < today) {
@@ -648,6 +681,7 @@ async function createBooking(context, supabase) {
     return json(409, { status: "error", message: "Jam tersebut sudah diajukan atau sudah dipinjam" });
   }
 
+  const bookingCode = createBookingCode(bookingDate);
   const { error } = await supabase.from("lab_bookings").insert({
     room_id: roomId,
     booking_date: bookingDate,
@@ -658,13 +692,62 @@ async function createBooking(context, supabase) {
     borrower_role: borrowerRole,
     borrower_contact: borrowerContact,
     purpose,
+    booking_code: bookingCode,
+    booking_category: bookingCategory,
+    class_name: className,
+    participant_count: participantCount,
+    participant_nims: participantNims,
     status: "pending"
   });
   if (error) throw error;
   return json(200, {
     status: "success",
-    message: "Pengajuan peminjaman berhasil dikirim dan menunggu persetujuan admin"
+    message: "Pengajuan berhasil dikirim dan menunggu persetujuan admin",
+    booking_code: bookingCode
   });
+}
+
+async function bookingStatus(context, supabase) {
+  if (method(context.request, "GET")) {
+    const code = new URL(context.request.url).searchParams.get("code")?.trim().toUpperCase() || "";
+    if (!validBookingCode(code)) {
+      return json(400, { status: "error", message: "Kode booking tidak valid" });
+    }
+    const { data, error } = await supabase
+      .from("lab_booking_view")
+      .select("booking_code, room_name, booking_date, day_name, start_time, end_time, borrower_name, booking_category, class_name, participant_count, purpose, status, admin_note, rules_accepted_at")
+      .eq("booking_code", code)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return json(404, { status: "error", message: "Booking tidak ditemukan" });
+    return json(200, { status: "success", data, rules: LAB_RULES });
+  }
+
+  if (method(context.request, "POST")) {
+    const body = await readBody(context.request);
+    const code = clean(body.code, 40).toUpperCase();
+    if (!validBookingCode(code) || body.accepted !== true) {
+      return json(400, { status: "error", message: "Persetujuan peraturan tidak valid" });
+    }
+    const current = await supabase
+      .from("lab_bookings")
+      .select("id, status")
+      .eq("booking_code", code)
+      .maybeSingle();
+    if (current.error) throw current.error;
+    if (!current.data) return json(404, { status: "error", message: "Booking tidak ditemukan" });
+    if (current.data.status !== "approved") {
+      return json(409, { status: "error", message: "Peraturan dapat disetujui setelah booking diterima" });
+    }
+    const { error } = await supabase
+      .from("lab_bookings")
+      .update({ rules_accepted_at: new Date().toISOString() })
+      .eq("id", current.data.id);
+    if (error) throw error;
+    return json(200, { status: "success", message: "Persetujuan peraturan berhasil dicatat" });
+  }
+
+  return json(405, { status: "error", message: "Method tidak diizinkan" });
 }
 
 async function updateBookingStatus(context, supabase) {
@@ -715,7 +798,7 @@ async function updateBookingStatus(context, supabase) {
   }
   const { error } = await supabase
     .from("lab_bookings")
-    .update({ status, admin_note: adminNote })
+    .update({ status, admin_note: adminNote, rules_accepted_at: null })
     .eq("id", id);
   if (error) throw error;
   return json(200, {
@@ -737,6 +820,7 @@ const handlers = {
   "get-schedule": getSchedule,
   "get-rooms": getRooms,
   "create-booking": createBooking,
+  "booking-status": bookingStatus,
   "update-booking-status": updateBookingStatus
 };
 
