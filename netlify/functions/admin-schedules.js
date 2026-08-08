@@ -70,13 +70,6 @@ exports.handler = async function(event) {
       return response(200, { status: "success", message: `${ids.length} jadwal berhasil diarsipkan` });
     }
 
-    if (action === "delete") {
-      if (!id) return response(400, { status: "error", message: "ID jadwal tidak valid" });
-      const { error } = await supabase.from("lab_schedules").delete().eq("id", id);
-      if (error) throw error;
-      return response(200, { status: "success", message: "Jadwal berhasil dihapus" });
-    }
-
     const roomId = Number(body.room_id || 0);
     const dayName = clean(body.day_name, 10);
     const startTime = clean(body.start_time, 5);
