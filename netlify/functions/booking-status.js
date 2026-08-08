@@ -34,7 +34,7 @@ exports.handler = async function(event) {
 
       const { data, error } = await supabase
         .from("lab_booking_view")
-        .select("booking_code, room_name, booking_date, day_name, start_time, end_time, borrower_name, booking_category, class_name, participant_count, purpose, status, admin_note, rules_accepted_at")
+        .select("booking_code, room_name, booking_date, day_name, start_time, end_time, borrower_name, booking_category, class_name, participant_count, academic_year, academic_period, purpose, status, admin_note, rules_accepted_at")
         .eq("booking_code", code)
         .maybeSingle();
       if (error) throw error;

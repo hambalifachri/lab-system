@@ -40,6 +40,7 @@
   <script>
     const labels = { pending:"Menunggu persetujuan", approved:"Disetujui", rejected:"Ditolak", cancelled:"Dibatalkan" };
     const categories = { perkuliahan:"Perkuliahan/praktikum", ujian:"Ujian", pelatihan:"Pelatihan/workshop", lainnya:"Kegiatan lainnya" };
+    const periods = { gasal:"Semester Gasal", antara_gasal:"Semester Antara Gasal", genap:"Semester Genap", antara_genap:"Semester Antara Genap", di_luar_periode:"Di luar periode" };
     let currentCode = "";
     const esc = value => String(value ?? "-").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
     const time = value => value ? value.slice(0,5) : "-";
@@ -59,7 +60,7 @@
         const row = result.data;
         localStorage.setItem("last_booking_code", currentCode); codeInput.value = currentCode;
         codeLabel.textContent = currentCode; statusBadge.textContent = labels[row.status] || row.status; statusBadge.className = `badge ${row.status}`;
-        bookingDetail.innerHTML = detail("Ruangan", row.room_name) + detail("Tanggal", date(row.booking_date)) + detail("Waktu", `${time(row.start_time)}-${time(row.end_time)}`) + detail("Penanggung jawab", row.borrower_name) + detail("Kelas/Prodi", row.class_name) + detail("Jumlah peserta", `${row.participant_count} orang`) + detail("Jenis kegiatan", categories[row.booking_category] || row.booking_category) + detail("Keperluan", row.purpose);
+        bookingDetail.innerHTML = detail("Ruangan", row.room_name) + detail("Tanggal", date(row.booking_date)) + detail("Waktu", `${time(row.start_time)}-${time(row.end_time)}`) + detail("Tahun akademik", row.academic_year) + detail("Periode", periods[row.academic_period] || row.academic_period) + detail("Penanggung jawab", row.borrower_name) + detail("Kelas/Prodi", row.class_name) + detail("Jumlah peserta", `${row.participant_count} orang`) + detail("Jenis kegiatan", categories[row.booking_category] || row.booking_category) + detail("Keperluan", row.purpose);
         adminNote.hidden = !row.admin_note; adminNote.textContent = row.admin_note ? `Catatan admin: ${row.admin_note}` : "";
         rulesSection.hidden = row.status !== "approved";
         rulesList.innerHTML = (result.rules || []).map(rule => `<li>${esc(rule)}</li>`).join("");

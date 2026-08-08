@@ -60,6 +60,8 @@ exports.handler = async function(event) {
     const bookingCategory = clean(body.booking_category || 'perkuliahan', 30);
     const className = clean(body.class_name, 120);
     const participantCount = Number(body.participant_count || 0);
+    const academicYear = clean(body.academic_year, 9);
+    const academicPeriod = clean(body.academic_period, 30);
     const participantNims = [...new Set(Array.isArray(body.participant_nims)
       ? body.participant_nims.map(item => clean(item, 11)).filter(Boolean)
       : [])];
@@ -80,6 +82,12 @@ exports.handler = async function(event) {
 
     if (!['perkuliahan', 'ujian', 'pelatihan', 'lainnya'].includes(bookingCategory)) {
       return response(400, { status: "error", message: "Jenis kegiatan tidak valid" });
+    }
+
+    const academicYears = academicYear.match(/^(\d{4})\/(\d{4})$/);
+    if (!academicYears || Number(academicYears[2]) !== Number(academicYears[1]) + 1 ||
+        !['gasal', 'antara_gasal', 'genap', 'antara_genap', 'di_luar_periode'].includes(academicPeriod)) {
+      return response(400, { status: "error", message: "Tahun akademik atau periode semester tidak valid" });
     }
 
     if (!className || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > 25) {
@@ -187,6 +195,8 @@ exports.handler = async function(event) {
         class_name: className,
         participant_count: participantCount,
         participant_nims: participantNims,
+        academic_year: academicYear,
+        academic_period: academicPeriod,
         status: "pending"
       });
 

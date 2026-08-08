@@ -19,6 +19,8 @@
         <div class="form-grid">
           <div class="field"><label for="room_id">Ruangan *</label><select id="room_id" required><option value="">Memuat ruangan...</option></select></div>
           <div class="field"><label for="booking_date">Tanggal *</label><input id="booking_date" type="date" required></div>
+          <div class="field"><label for="academic_year">Tahun akademik *</label><input id="academic_year" maxlength="9" placeholder="Contoh: 2026/2027" required></div>
+          <div class="field"><label for="academic_period">Periode semester *</label><select id="academic_period" required><option value="gasal">Semester Gasal</option><option value="antara_gasal">Semester Antara Gasal</option><option value="genap">Semester Genap</option><option value="antara_genap">Semester Antara Genap</option><option value="di_luar_periode">Di luar periode</option></select><span class="muted small">Otomatis mengikuti tanggal; dapat disesuaikan bila periode antara berubah.</span></div>
           <div class="field"><label for="start_time">Jam mulai *</label><input id="start_time" type="time" min="08:00" max="16:00" required></div>
           <div class="field"><label for="end_time">Jam selesai *</label><input id="end_time" type="time" min="08:00" max="16:00" required></div>
           <div class="field"><label for="borrower_name">Nama penanggung jawab *</label><input id="borrower_name" maxlength="120" autocomplete="name" required></div>
@@ -52,6 +54,21 @@
       link.download = filename; link.click(); URL.revokeObjectURL(link.href);
     }
     function downloadTemplate() { downloadText("template-nim-peserta.csv", "nim\n00000000000\n"); }
+
+    function suggestAcademicPeriod() {
+      if (!booking_date.value) return;
+      const selected = new Date(booking_date.value + "T00:00:00");
+      const month = selected.getMonth();
+      const year = selected.getFullYear();
+      const startYear = month >= 7 ? year : year - 1;
+      academic_year.value = `${startYear}/${startYear + 1}`;
+      academic_period.value = month === 1 ? "antara_gasal"
+        : month >= 2 && month <= 4 ? "genap"
+        : month === 7 ? "antara_genap"
+        : month >= 8 && month <= 9 ? "gasal"
+        : "di_luar_periode";
+    }
+    booking_date.addEventListener("change", suggestAcademicPeriod);
 
     participant_file.addEventListener("change", async () => {
       participantNims = [];
@@ -87,6 +104,7 @@
         room_id: Number(room_id.value), booking_date: booking_date.value, start_time: start_time.value, end_time: end_time.value,
         borrower_name: borrower_name.value.trim(), borrower_role: borrower_role.value, borrower_contact: borrower_contact.value.trim(),
         booking_category: booking_category.value, class_name: class_name.value.trim(), participant_count: Number(participant_count.value),
+        academic_year: academic_year.value.trim(), academic_period: academic_period.value,
         participant_nims: participantNims, purpose: purpose.value.trim()
       };
 

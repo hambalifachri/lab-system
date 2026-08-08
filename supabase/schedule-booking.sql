@@ -49,6 +49,8 @@ create table if not exists public.lab_bookings (
   participant_count integer not null default 1,
   participant_nims text[] not null default '{}',
   rules_accepted_at timestamptz,
+  academic_year text not null default 'Belum ditentukan',
+  academic_period text not null default 'di_luar_periode',
   created_at timestamptz not null default now()
 );
 
@@ -88,7 +90,8 @@ join public.lab_rooms r on r.id = s.room_id
 where s.status = 'active'
   and current_date between s.period_start and s.period_end;
 
-create or replace view public.lab_booking_view as
+drop view if exists public.lab_booking_view;
+create view public.lab_booking_view with (security_invoker = true) as
 select
   b.id,
   b.room_id,
@@ -109,7 +112,9 @@ select
   b.class_name,
   b.participant_count,
   b.participant_nims,
-  b.rules_accepted_at
+  b.rules_accepted_at,
+  b.academic_year,
+  b.academic_period
 from public.lab_bookings b
 join public.lab_rooms r on r.id = b.room_id;
 
