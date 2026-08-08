@@ -477,6 +477,33 @@ async function adminBookings(context, supabase) {
   return json(200, { status: "success", data });
 }
 
+async function updateBookingParticipants(context, supabase) {
+  if (!method(context.request, "POST")) {
+    return json(405, { status: "error", message: "Method tidak diizinkan" });
+  }
+  if (!isAdmin(context)) {
+    return json(401, { status: "error", message: "Akses admin ditolak" });
+  }
+  const body = await readBody(context.request);
+  const id = Number(body.id || 0);
+  const participantCount = Number(body.participant_count || 0);
+  const participantNims = [...new Set((Array.isArray(body.participant_nims) ? body.participant_nims : [])
+    .map(value => String(value || "").trim())
+    .filter(Boolean))];
+  if (!id || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > 25) {
+    return json(400, { status: "error", message: "Jumlah peserta harus 1-25" });
+  }
+  if (participantNims.length > participantCount || participantNims.some(nim => !/^\d{11}$/.test(nim))) {
+    return json(400, { status: "error", message: "NIM harus 11 digit dan tidak boleh melebihi jumlah peserta" });
+  }
+  const { error } = await supabase
+    .from("lab_bookings")
+    .update({ participant_count: participantCount, participant_nims: participantNims })
+    .eq("id", id);
+  if (error) throw error;
+  return json(200, { status: "success", message: "Daftar NIM peserta berhasil diperbarui" });
+}
+
 async function getSchedule(context, supabase) {
   if (!method(context.request, "GET")) {
     return json(405, { status: "error", message: "Method tidak diizinkan" });
@@ -516,7 +543,7 @@ async function adminSchedules(context, supabase) {
   if (method(context.request, "GET")) {
     const { data, error } = await supabase
       .from("lab_schedules")
-      .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, schedule_type, status, lab_rooms(room_name)")
+      .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, schedule_type, semester_label, status, archived_at, lab_rooms(room_name)")
       .order("day_name")
       .order("start_time");
     if (error) throw error;
@@ -534,6 +561,21 @@ async function adminSchedules(context, supabase) {
   const action = body.action || "save";
   const id = Number(body.id || 0);
 
+  if (action === "archive") {
+    const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(Number).filter(Number.isInteger))];
+    const semesterLabel = clean(body.semester_label, 80);
+    if (!ids.length || ids.length > 200 || !semesterLabel) {
+      return json(400, { status: "error", message: "Jadwal dan nama semester wajib diisi" });
+    }
+    const { error } = await supabase
+      .from("lab_schedules")
+      .update({ status: "archived", semester_label: semesterLabel, archived_at: new Date().toISOString() })
+      .in("id", ids)
+      .eq("status", "active");
+    if (error) throw error;
+    return json(200, { status: "success", message: `${ids.length} jadwal berhasil diarsipkan` });
+  }
+
   if (action === "delete") {
     if (!id) return json(400, { status: "error", message: "ID jadwal tidak valid" });
     const { error } = await supabase.from("lab_schedules").delete().eq("id", id);
@@ -549,6 +591,7 @@ async function adminSchedules(context, supabase) {
   const className = clean(body.class_name);
   const lecturerName = clean(body.lecturer_name);
   const scheduleType = clean(body.schedule_type || "kuliah", 30);
+  const semesterLabel = clean(body.semester_label || "Belum ditentukan", 80);
 
   if (!roomId || !SCHEDULE_DAYS.includes(dayName) || !startTime || !endTime || !subject) {
     return json(400, { status: "error", message: "Data jadwal belum lengkap" });
@@ -587,6 +630,7 @@ async function adminSchedules(context, supabase) {
     class_name: className,
     lecturer_name: lecturerName,
     schedule_type: scheduleType,
+    semester_label: semesterLabel,
     status: "active"
   };
   const result = id
@@ -816,6 +860,7 @@ const handlers = {
   "admin-status": adminStatus,
   "admin-session": adminSession,
   "admin-bookings": adminBookings,
+  "update-booking-participants": updateBookingParticipants,
   "admin-schedules": adminSchedules,
   "get-schedule": getSchedule,
   "get-rooms": getRooms,

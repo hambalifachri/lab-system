@@ -37,7 +37,7 @@ exports.handler = async function(event) {
     if (event.httpMethod === "GET") {
       const { data, error } = await supabase
         .from("lab_schedules")
-        .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, schedule_type, status, lab_rooms(room_name)")
+        .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, schedule_type, semester_label, status, archived_at, lab_rooms(room_name)")
         .order("day_name")
         .order("start_time");
       if (error) throw error;
@@ -55,6 +55,21 @@ exports.handler = async function(event) {
     const action = body.action || "save";
     const id = Number(body.id || 0);
 
+    if (action === "archive") {
+      const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(Number).filter(Number.isInteger))];
+      const semesterLabel = clean(body.semester_label, 80);
+      if (!ids.length || ids.length > 200 || !semesterLabel) {
+        return response(400, { status: "error", message: "Jadwal dan nama semester wajib diisi" });
+      }
+      const { error } = await supabase
+        .from("lab_schedules")
+        .update({ status: "archived", semester_label: semesterLabel, archived_at: new Date().toISOString() })
+        .in("id", ids)
+        .eq("status", "active");
+      if (error) throw error;
+      return response(200, { status: "success", message: `${ids.length} jadwal berhasil diarsipkan` });
+    }
+
     if (action === "delete") {
       if (!id) return response(400, { status: "error", message: "ID jadwal tidak valid" });
       const { error } = await supabase.from("lab_schedules").delete().eq("id", id);
@@ -70,6 +85,7 @@ exports.handler = async function(event) {
     const className = clean(body.class_name);
     const lecturerName = clean(body.lecturer_name);
     const scheduleType = clean(body.schedule_type || "kuliah", 30);
+    const semesterLabel = clean(body.semester_label || "Belum ditentukan", 80);
 
     if (!roomId || !DAYS.includes(dayName) || !startTime || !endTime || !subject) {
       return response(400, { status: "error", message: "Data jadwal belum lengkap" });
@@ -112,6 +128,7 @@ exports.handler = async function(event) {
       class_name: className,
       lecturer_name: lecturerName,
       schedule_type: scheduleType,
+      semester_label: semesterLabel,
       status: "active"
     };
 
