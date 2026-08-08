@@ -577,6 +577,51 @@ async function adminSchedules(context, supabase) {
     return json(200, { status: "success", message: `${ids.length} jadwal berhasil diarsipkan` });
   }
 
+  if (action === "import") {
+    const schedules = Array.isArray(body.schedules) ? body.schedules : [];
+    if (!schedules.length || schedules.length > 200) {
+      return json(400, { status: "error", message: "File harus berisi 1-200 jadwal" });
+    }
+    const roomIds = [...new Set(schedules.map(row => Number(row.room_id || 0)))];
+    const roomResult = await supabase.from("lab_rooms").select("id").in("id", roomIds);
+    if (roomResult.error) throw roomResult.error;
+    const validRoomIds = new Set((roomResult.data || []).map(row => Number(row.id)));
+    const payloads = schedules.map((row, index) => {
+      const item = {
+        room_id: Number(row.room_id || 0), day_name: clean(row.day_name, 10),
+        start_time: clean(row.start_time, 5), end_time: clean(row.end_time, 5),
+        subject: clean(row.subject), class_name: clean(row.class_name), lecturer_name: clean(row.lecturer_name),
+        schedule_type: clean(row.schedule_type || "kuliah", 30), semester_label: clean(row.semester_label, 80),
+        period_type: clean(row.period_type, 30), period_start: clean(row.period_start, 10),
+        period_end: clean(row.period_end, 10), status: "active"
+      };
+      const valid = validRoomIds.has(item.room_id) && SCHEDULE_DAYS.includes(item.day_name) &&
+        item.start_time && item.end_time && item.start_time < item.end_time && item.subject && item.semester_label &&
+        SCHEDULE_PERIOD_TYPES.includes(item.period_type) && ["kuliah", "praktikum", "ujian", "lainnya"].includes(item.schedule_type) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(item.period_start) && /^\d{4}-\d{2}-\d{2}$/.test(item.period_end) && item.period_start <= item.period_end;
+      if (!valid) throw new Error(`Baris ${index + 2} tidak valid`);
+      return item;
+    });
+    const existingResult = await supabase.from("lab_schedules")
+      .select("room_id, day_name, start_time, end_time, subject, period_start, period_end")
+      .in("room_id", roomIds).eq("status", "active");
+    if (existingResult.error) throw existingResult.error;
+    const accepted = [];
+    for (let index = 0; index < payloads.length; index++) {
+      const item = payloads[index];
+      const conflict = [...(existingResult.data || []), ...accepted].find(other =>
+        Number(other.room_id) === item.room_id && other.day_name === item.day_name &&
+        item.period_start <= other.period_end && item.period_end >= other.period_start &&
+        isOverlap(item.start_time, item.end_time, other.start_time.slice(0, 5), other.end_time.slice(0, 5))
+      );
+      if (conflict) return json(409, { status: "error", message: `Baris ${index + 2} bentrok dengan jadwal ${conflict.subject}` });
+      accepted.push(item);
+    }
+    const insertResult = await supabase.from("lab_schedules").insert(accepted);
+    if (insertResult.error) throw insertResult.error;
+    return json(200, { status: "success", message: `${accepted.length} jadwal berhasil diimpor` });
+  }
+
   const roomId = Number(body.room_id || 0);
   const dayName = clean(body.day_name, 10);
   const startTime = clean(body.start_time, 5);
@@ -903,7 +948,11 @@ export async function onRequest(context) {
 
   try {
     return await handler(context, supabase);
-  } catch {
+  } catch (error) {
+    const validationMessage = String(error?.message || "");
+    if (validationMessage.startsWith("Baris ")) {
+      return json(400, { status: "error", message: validationMessage });
+    }
     return json(500, { status: "error", message: "Terjadi kesalahan pada server" });
   }
 }
