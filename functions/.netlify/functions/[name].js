@@ -27,7 +27,7 @@ function method(request, expected) {
 }
 
 function isLabComputer(name) {
-  return /^(SIPIL|ARSITEKTUR)-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
+  return /^(SIPIL|ARSITEK)-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
 }
 
 function isFreeAccessSession(session) {
@@ -36,12 +36,12 @@ function isFreeAccessSession(session) {
 
 function roomForComputer(name) {
   if (String(name || "").startsWith("SIPIL-")) return "Lab C.413";
-  if (String(name || "").startsWith("ARSITEKTUR-")) return "Lab C.405";
+  if (String(name || "").startsWith("ARSITEK-")) return "Lab C.405";
   return "-";
 }
 
 function devicesForScope(scope) {
-  const labs = scope === "ALL" ? ["SIPIL", "ARSITEKTUR"] : [scope];
+  const labs = scope === "ALL" ? ["SIPIL", "ARSITEK"] : [scope];
   return labs.flatMap(lab => Array.from({ length: 25 }, (_, index) =>
     `${lab}-${String(index + 1).padStart(2, "0")}`));
 }
@@ -353,7 +353,7 @@ async function adminStatus(context, supabase) {
 }
 
 function systemNim(deviceId) {
-  const prefix = deviceId.startsWith("ARSITEKTUR-") ? "999999998" : "999999999";
+  const prefix = deviceId.startsWith("ARSITEK-") ? "999999998" : "999999999";
   return `${prefix}${deviceId.slice(-2)}`;
 }
 
@@ -437,11 +437,11 @@ async function adminSession(context, supabase) {
   const body = await readBody(context.request);
   const deviceId = (body.device_id || "").trim();
   const enabled = body.enabled === true;
-  if (!["ALL", "SIPIL", "ARSITEKTUR"].includes(deviceId) && !isLabComputer(deviceId)) {
+  if (!["ALL", "SIPIL", "ARSITEK"].includes(deviceId) && !isLabComputer(deviceId)) {
     return json(400, { status: "error", message: "PC lab tidak valid" });
   }
 
-  const devices = ["ALL", "SIPIL", "ARSITEKTUR"].includes(deviceId)
+  const devices = ["ALL", "SIPIL", "ARSITEK"].includes(deviceId)
     ? devicesForScope(deviceId)
     : [deviceId];
   await setDevicesMode(supabase, devices, enabled);
@@ -450,7 +450,7 @@ async function adminSession(context, supabase) {
     ? "Semua PC"
     : deviceId === "SIPIL"
       ? "Semua PC Lab C.413"
-      : deviceId === "ARSITEKTUR"
+      : deviceId === "ARSITEK"
         ? "Semua PC Lab C.405"
         : deviceId;
 

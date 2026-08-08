@@ -24,7 +24,7 @@ function isAdmin(event) {
 
 function roomForComputer(name) {
   if (String(name || '').startsWith('SIPIL-')) return 'Lab C.413';
-  if (String(name || '').startsWith('ARSITEKTUR-')) return 'Lab C.405';
+  if (String(name || '').startsWith('ARSITEK-')) return 'Lab C.405';
   return '-';
 }
 

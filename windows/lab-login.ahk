@@ -32,8 +32,8 @@ RWin::Return
 !F4::Return
 #HotIf
 
-if !RegExMatch(PcName, "^(SIPIL|ARSITEKTUR)-(0[1-9]|1[0-9]|2[0-5])$") {
-    MsgBox "Nama komputer harus SIPIL-01..25 atau ARSITEKTUR-01..25. Nama saat ini: " PcName, "Login Lab", 16
+if !RegExMatch(PcName, "^(SIPIL|ARSITEK)-(0[1-9]|1[0-9]|2[0-5])$") {
+    MsgBox "Nama komputer harus SIPIL-01..25 atau ARSITEK-01..25. Nama saat ini: " PcName, "Login Lab", 16
     ExitApp
 }
 

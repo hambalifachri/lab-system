@@ -10,7 +10,7 @@ const supabase = createClient(
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 function isLabComputer(name) {
-  return /^(SIPIL|ARSITEKTUR)-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
+  return /^(SIPIL|ARSITEK)-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
 }
 
 function isFreeAccessSession(session) {

@@ -17,7 +17,7 @@ function response(statusCode, data) {
 }
 
 function isLabComputer(name) {
-  return /^(SIPIL|ARSITEKTUR)-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
+  return /^(SIPIL|ARSITEK)-(0[1-9]|1[0-9]|2[0-5])$/.test(name || "");
 }
 
 function isFreeAccessSession(session) {

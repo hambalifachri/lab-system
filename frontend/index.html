@@ -237,12 +237,12 @@
     let currentUser = null;
     let heartbeatTimer = null;
 
-    // AutoHotkey membuka halaman ini dengan ?pc=SIPIL-01 atau ?pc=ARSITEKTUR-01. Nama PC tidak
+    // AutoHotkey membuka halaman ini dengan ?pc=SIPIL-01 atau ?pc=ARSITEK-01. Nama PC tidak
     // boleh diisi manual agar satu sesi selalu tercatat pada PC yang benar.
     const pcName = new URLSearchParams(window.location.search).get("pc") || "";
 
     function isLabComputer(name) {
-      return /^(SIPIL|ARSITEKTUR)-(0[1-9]|1[0-9]|2[0-5])$/.test(name);
+      return /^(SIPIL|ARSITEK)-(0[1-9]|1[0-9]|2[0-5])$/.test(name);
     }
 
     function sendHeartbeat() {
