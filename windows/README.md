@@ -3,7 +3,13 @@
 `lab-login.ahk` adalah script AutoHotkey v2 untuk PC `SIPIL-01`–`SIPIL-25` dan `ARSITEK-01`–`ARSITEK-25`.
 Script membaca hostname Windows secara otomatis, lalu memaksa halaman login muncul selama belum ada sesi aktif untuk PC itu.
 
-## Pemasangan per komputer
+## Pemasangan sekali jalan
+
+1. Ekstrak seluruh isi ZIP.
+2. Klik kanan `Jalankan-Sekali.cmd`, lalu pilih **Run as administrator**.
+3. Script menyalin konfigurasi ke `C:\LabLogin`, memasang AutoHotkey v2 melalui Winget bila diperlukan, menguji script, lalu menjalankannya.
+
+## Pemasangan manual
 
 1. Pastikan nama komputer Windows mengikuti format `SIPIL-01`–`SIPIL-25` atau `ARSITEK-01`–`ARSITEK-25`.
 2. Instal [AutoHotkey v2](https://www.autohotkey.com/).
