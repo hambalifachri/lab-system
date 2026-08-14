@@ -31,8 +31,8 @@
           <div class="field"><label for="borrower_role">Peran *</label><select id="borrower_role" required><option value="Dosen">Dosen</option><option value="Staff">Staf</option></select></div>
           <div class="field"><label for="booking_category">Jenis kegiatan *</label><select id="booking_category" required><option value="perkuliahan">Perkuliahan/praktikum</option><option value="ujian">Ujian</option><option value="pelatihan">Pelatihan/workshop</option><option value="lainnya">Kegiatan lainnya</option></select></div>
           <div class="field"><label for="class_name">Kelas/Prodi *</label><input id="class_name" maxlength="120" placeholder="Contoh: Teknik Sipil 4A" required></div>
-          <div class="field"><label for="participant_count">Jumlah peserta *</label><input id="participant_count" type="number" min="1" max="25" required></div>
           <div class="field"><label for="borrower_contact">Kontak aktif *</label><input id="borrower_contact" maxlength="120" placeholder="Nomor WhatsApp atau email" required></div>
+          <div class="field"><label>Kapasitas laboratorium</label><div class="notice">Maksimal 25 mahasiswa.</div></div>
           <div class="field full"><label for="participant_file">Daftar NIM peserta (CSV/TXT, opsional)</label><input id="participant_file" type="file" accept=".csv,.txt,text/csv,text/plain"><div id="nimSummary" class="muted small" style="margin-top:7px">Belum ada daftar NIM. Data ini hanya terlihat oleh admin.</div><button class="btn secondary small-btn" type="button" style="margin-top:9px" onclick="downloadTemplate()">Unduh Template CSV</button></div>
           <div class="field full"><label id="purposeLabel" for="purpose">Keperluan *</label><textarea id="purpose" maxlength="500" placeholder="Jelaskan tujuan penggunaan laboratorium" required></textarea></div>
         </div>
@@ -107,7 +107,6 @@
       borrower_role.querySelector('option[value="Staff"]').disabled = fixed;
       academic_period.querySelector('option[value="di_luar_periode"]').disabled = fixed;
       if (fixed && academic_period.value === "di_luar_periode") academic_period.value = "gasal";
-      participant_count.max = "25";
       bookingNotice.textContent = fixed
         ? "Jadwal akan berulang setiap minggu pada periode semester yang dipilih. Setelah admin menyetujui, jadwal otomatis masuk ke kalender lab."
         : "Pengajuan yang tidak bentrok akan masuk ke admin. Simpan kode booking untuk memeriksa hasil persetujuan dan membaca peraturan lab.";
@@ -148,14 +147,13 @@
       const fixed = request_type.value === "fixed_schedule";
       if (!fixed && new Date(booking_date.value + "T00:00:00").getDay() === 0) return showMessage("Lab tidak dapat dibooking pada hari Minggu.", "error");
       if (fixed && academic_period.value === "di_luar_periode") return showMessage("Jadwal tetap harus memakai periode semester.", "error");
-      if (participantNims.length > Number(participant_count.value)) return showMessage("Jumlah NIM melebihi jumlah peserta.", "error");
 
       const payload = {
         request_type: request_type.value, room_id: Number(room_id.value), booking_date: booking_date.value,
         day_name: fixed ? day_name.value : "",
         semester_label: fixed ? semester_label.value.trim() : "", start_time: start_time.value, end_time: end_time.value,
         borrower_name: borrower_name.value.trim(), borrower_role: borrower_role.value, borrower_contact: borrower_contact.value.trim(),
-        booking_category: booking_category.value, class_name: class_name.value.trim(), participant_count: Number(participant_count.value),
+        booking_category: booking_category.value, class_name: class_name.value.trim(), participant_count: 25,
         academic_year: academic_year.value.trim(), academic_period: academic_period.value,
         participant_nims: participantNims, purpose: purpose.value.trim()
       };
