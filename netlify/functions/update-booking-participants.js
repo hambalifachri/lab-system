@@ -31,9 +31,8 @@ exports.handler = async function(event) {
 
     const bookingResult = await supabase.from("lab_bookings").select("request_type, schedule_id").eq("id", id).maybeSingle();
     if (bookingResult.error || !bookingResult.data) return response(404, { status: "error", message: "Booking tidak ditemukan" });
-    const maxParticipants = bookingResult.data.request_type === "fixed_schedule" ? 200 : 25;
-    if (!id || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > maxParticipants) {
-      return response(400, { status: "error", message: `Jumlah peserta harus 1-${maxParticipants}` });
+    if (!id || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > 25) {
+      return response(400, { status: "error", message: "Jumlah peserta harus 1-25" });
     }
     if (participantNims.length > participantCount || participantNims.some(nim => !/^\d{11}$/.test(nim))) {
       return response(400, { status: "error", message: "NIM harus 11 digit dan tidak boleh melebihi jumlah peserta" });

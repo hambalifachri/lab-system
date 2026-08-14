@@ -40,6 +40,20 @@ function createBookingCode(bookingDate) {
 const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const PERIODS = ['gasal', 'antara_gasal', 'genap', 'antara_genap'];
 
+function fixedPeriod(academicYear, periodType) {
+  const years = String(academicYear || '').match(/^(\d{4})\/(\d{4})$/);
+  if (!years) return null;
+  const startYear = years[1], endYear = years[2];
+  const ranges = {
+    gasal: [`${startYear}-09-01`, `${startYear}-10-31`, 'Semester Gasal'],
+    antara_gasal: [`${endYear}-02-01`, `${endYear}-03-31`, 'Semester Antara Gasal'],
+    genap: [`${endYear}-03-01`, `${endYear}-05-31`, 'Semester Genap'],
+    antara_genap: [`${endYear}-08-01`, `${endYear}-09-30`, 'Semester Antara Genap']
+  };
+  const range = ranges[periodType];
+  return range ? { start: range[0], end: range[1], label: `${academicYear} ${range[2]}` } : null;
+}
+
 // ================= CREATE BOOKING FUNCTION =================
 exports.handler = async function(event) {
   if (event.httpMethod !== "POST") {
@@ -54,17 +68,17 @@ exports.handler = async function(event) {
 
     const roomId = Number(body.room_id || 0);
     const requestType = clean(body.request_type || 'single', 20);
-    const periodStart = clean(body.period_start, 10);
-    const periodEnd = clean(body.period_end, 10);
-    const semesterLabel = clean(body.semester_label, 80);
+    let periodStart = clean(body.period_start, 10);
+    let periodEnd = clean(body.period_end, 10);
+    let semesterLabel = clean(body.semester_label, 80);
     const requestedDay = clean(body.day_name, 10);
-    const bookingDate = requestType === 'fixed_schedule' ? periodStart : clean(body.booking_date, 10);
+    let bookingDate = clean(body.booking_date, 10);
     const startTime = clean(body.start_time, 5);
     const endTime = clean(body.end_time, 5);
     const borrowerName = clean(body.borrower_name, 120);
     const borrowerRole = clean(body.borrower_role, 20);
     const borrowerContact = clean(body.borrower_contact, 120);
-    const purpose = clean(body.purpose, 500);
+    let purpose = clean(body.purpose, 500);
     const bookingCategory = clean(body.booking_category || 'perkuliahan', 30);
     const className = clean(body.class_name, 120);
     const participantCount = Number(body.participant_count || 0);
@@ -78,7 +92,8 @@ exports.handler = async function(event) {
       return response(400, { status: "error", message: "Jenis pengajuan tidak valid" });
     }
 
-    if (!roomId || !bookingDate || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact || !purpose) {
+    if (!roomId || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact ||
+        (requestType === 'single' && (!bookingDate || !purpose))) {
       return response(400, {
         status: "error",
         message: "Data peminjaman belum lengkap"
@@ -107,9 +122,18 @@ exports.handler = async function(event) {
       return response(400, { status: "error", message: "Tahun akademik atau periode semester tidak valid" });
     }
 
-    const maxParticipants = requestType === 'fixed_schedule' ? 200 : 25;
-    if (!className || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > maxParticipants) {
-      return response(400, { status: "error", message: `Kelas/prodi dan jumlah peserta 1-${maxParticipants} wajib diisi` });
+    if (requestType === 'fixed_schedule') {
+      const period = fixedPeriod(academicYear, academicPeriod);
+      if (!period) return response(400, { status: "error", message: "Periode semester tidak valid" });
+      periodStart = period.start;
+      periodEnd = period.end;
+      semesterLabel = period.label;
+      bookingDate = periodStart;
+      if (!purpose) purpose = `Jadwal tetap ${className}`;
+    }
+
+    if (!className || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > 25) {
+      return response(400, { status: "error", message: "Kelas/prodi dan jumlah peserta 1-25 wajib diisi" });
     }
 
     if (participantNims.some(nim => !/^\d{11}$/.test(nim)) || participantNims.length > participantCount) {
@@ -117,7 +141,9 @@ exports.handler = async function(event) {
     }
 
     const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) || bookingDate < today) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) ||
+        (requestType === 'single' && bookingDate < today) ||
+        (requestType === 'fixed_schedule' && periodEnd < today)) {
       return response(400, {
         status: "error",
         message: "Tanggal peminjaman tidak boleh di masa lalu"
@@ -135,7 +161,7 @@ exports.handler = async function(event) {
 
     if (requestType === 'fixed_schedule' &&
         (!DAYS.includes(dayName) || !semesterLabel || !/^\d{4}-\d{2}-\d{2}$/.test(periodStart) ||
-         !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd) || periodStart < today || periodStart > periodEnd)) {
+         !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd) || periodStart > periodEnd)) {
       return response(400, { status: "error", message: "Hari dan periode berlaku jadwal tetap tidak valid" });
     }
 

@@ -91,6 +91,20 @@ function validBookingCode(value) {
   return /^LAB-[A-Z0-9-]{8,32}$/.test(value || "");
 }
 
+function fixedPeriod(academicYear, periodType) {
+  const years = String(academicYear || "").match(/^(\d{4})\/(\d{4})$/);
+  if (!years) return null;
+  const startYear = years[1], endYear = years[2];
+  const ranges = {
+    gasal: [`${startYear}-09-01`, `${startYear}-10-31`, "Semester Gasal"],
+    antara_gasal: [`${endYear}-02-01`, `${endYear}-03-31`, "Semester Antara Gasal"],
+    genap: [`${endYear}-03-01`, `${endYear}-05-31`, "Semester Genap"],
+    antara_genap: [`${endYear}-08-01`, `${endYear}-09-30`, "Semester Antara Genap"]
+  };
+  const range = ranges[periodType];
+  return range ? { start: range[0], end: range[1], label: `${academicYear} ${range[2]}` } : null;
+}
+
 async function login(context, supabase) {
   if (!method(context.request, "POST")) {
     return json(405, { status: "error", message: "Method tidak diizinkan" });
@@ -495,9 +509,8 @@ async function updateBookingParticipants(context, supabase) {
   if (bookingResult.error || !bookingResult.data) {
     return json(404, { status: "error", message: "Booking tidak ditemukan" });
   }
-  const maxParticipants = bookingResult.data.request_type === "fixed_schedule" ? 200 : 25;
-  if (!id || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > maxParticipants) {
-    return json(400, { status: "error", message: `Jumlah peserta harus 1-${maxParticipants}` });
+  if (!id || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > 25) {
+    return json(400, { status: "error", message: "Jumlah peserta harus 1-25" });
   }
   if (participantNims.length > participantCount || participantNims.some(nim => !/^\d{11}$/.test(nim))) {
     return json(400, { status: "error", message: "NIM harus 11 digit dan tidak boleh melebihi jumlah peserta" });
@@ -721,17 +734,17 @@ async function createBooking(context, supabase) {
   const body = await readBody(context.request);
   const roomId = Number(body.room_id || 0);
   const requestType = clean(body.request_type || "single", 20);
-  const periodStart = clean(body.period_start, 10);
-  const periodEnd = clean(body.period_end, 10);
-  const semesterLabel = clean(body.semester_label, 80);
+  let periodStart = clean(body.period_start, 10);
+  let periodEnd = clean(body.period_end, 10);
+  let semesterLabel = clean(body.semester_label, 80);
   const requestedDay = clean(body.day_name, 10);
-  const bookingDate = requestType === "fixed_schedule" ? periodStart : clean(body.booking_date, 10);
+  let bookingDate = clean(body.booking_date, 10);
   const startTime = clean(body.start_time, 5);
   const endTime = clean(body.end_time, 5);
   const borrowerName = clean(body.borrower_name, 120);
   const borrowerRole = clean(body.borrower_role, 20);
   const borrowerContact = clean(body.borrower_contact, 120);
-  const purpose = clean(body.purpose, 500);
+  let purpose = clean(body.purpose, 500);
   const bookingCategory = clean(body.booking_category || "perkuliahan", 30);
   const className = clean(body.class_name, 120);
   const participantCount = Number(body.participant_count || 0);
@@ -744,7 +757,8 @@ async function createBooking(context, supabase) {
   if (!["single", "fixed_schedule"].includes(requestType)) {
     return json(400, { status: "error", message: "Jenis pengajuan tidak valid" });
   }
-  if (!roomId || !bookingDate || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact || !purpose) {
+  if (!roomId || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact ||
+      (requestType === "single" && (!bookingDate || !purpose))) {
     return json(400, { status: "error", message: "Data peminjaman belum lengkap" });
   }
   if (!["Dosen", "Staff"].includes(borrowerRole)) {
@@ -762,15 +776,25 @@ async function createBooking(context, supabase) {
       (requestType === "fixed_schedule" && !SCHEDULE_PERIOD_TYPES.includes(academicPeriod))) {
     return json(400, { status: "error", message: "Tahun akademik atau periode semester tidak valid" });
   }
-  const maxParticipants = requestType === "fixed_schedule" ? 200 : 25;
-  if (!className || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > maxParticipants) {
-    return json(400, { status: "error", message: `Kelas/prodi dan jumlah peserta 1-${maxParticipants} wajib diisi` });
+  if (requestType === "fixed_schedule") {
+    const period = fixedPeriod(academicYear, academicPeriod);
+    if (!period) return json(400, { status: "error", message: "Periode semester tidak valid" });
+    periodStart = period.start;
+    periodEnd = period.end;
+    semesterLabel = period.label;
+    bookingDate = periodStart;
+    if (!purpose) purpose = `Jadwal tetap ${className}`;
+  }
+  if (!className || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > 25) {
+    return json(400, { status: "error", message: "Kelas/prodi dan jumlah peserta 1-25 wajib diisi" });
   }
   if (participantNims.some(nim => !/^\d{11}$/.test(nim)) || participantNims.length > participantCount) {
     return json(400, { status: "error", message: "Daftar NIM tidak valid atau melebihi jumlah peserta" });
   }
   const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) || bookingDate < today) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) ||
+      (requestType === "single" && bookingDate < today) ||
+      (requestType === "fixed_schedule" && periodEnd < today)) {
     return json(400, { status: "error", message: "Tanggal peminjaman tidak boleh di masa lalu" });
   }
   if (startTime < "08:00" || endTime > "16:00" || startTime >= endTime) {
@@ -780,7 +804,7 @@ async function createBooking(context, supabase) {
   const dayName = requestType === "fixed_schedule" ? requestedDay : getIndonesianDay(bookingDate);
   if (requestType === "fixed_schedule" &&
       (!SCHEDULE_DAYS.includes(dayName) || !semesterLabel || !/^\d{4}-\d{2}-\d{2}$/.test(periodStart) ||
-       !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd) || periodStart < today || periodStart > periodEnd)) {
+       !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd) || periodStart > periodEnd)) {
     return json(400, { status: "error", message: "Hari dan periode berlaku jadwal tetap tidak valid" });
   }
   if (dayName === "Minggu") {
