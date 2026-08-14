@@ -109,7 +109,7 @@ exports.handler = async function(event) {
       }
 
       const updateResult = await supabase.from('lab_bookings').update({
-        status: 'approved', admin_note: adminNote, rules_accepted_at: null, schedule_id: scheduleId || null
+        status: 'approved', admin_note: adminNote, schedule_id: scheduleId || null
       }).eq('id', id);
       if (updateResult.error) {
         if (booking.request_type === 'fixed_schedule' && scheduleId && !booking.schedule_id) {
@@ -133,7 +133,7 @@ exports.handler = async function(event) {
     }
 
     const { error } = await supabase.from('lab_bookings').update({
-      status, admin_note: adminNote, rules_accepted_at: null
+      status, admin_note: adminNote
     }).eq('id', id);
     if (error) throw error;
     return response(200, { status: 'success', message: 'Status pengajuan berhasil diperbarui' });

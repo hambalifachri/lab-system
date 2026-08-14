@@ -6,12 +6,15 @@ const supabase = createClient(
 );
 
 const LAB_RULES = [
+  "Dilarang membawa atau mengonsumsi makanan di dalam laboratorium.",
+  "Minuman hanya diperbolehkan menggunakan tumbler atau botol air mineral yang tertutup rapat dan harus dijauhkan dari komputer.",
+  "Dilarang meninggalkan sampah dalam bentuk apa pun.",
+  "Dilarang memindahkan perangkat, mencabut kabel, atau mengubah susunan peralatan laboratorium.",
+  "Dilarang memasang atau menghapus aplikasi serta mengubah pengaturan komputer tanpa izin pengelola.",
   "Peserta wajib login menggunakan NIM masing-masing dan dilarang meminjamkan identitas.",
-  "Dilarang memasang atau menghapus aplikasi tanpa izin pengelola laboratorium.",
-  "Dilarang mengubah konfigurasi komputer, jaringan, kabel, atau perangkat laboratorium.",
-  "Penanggung jawab memastikan ruangan tetap bersih, rapi, dan seluruh perangkat digunakan dengan baik.",
+  "Penanggung jawab wajib mengawasi peserta selama kegiatan berlangsung.",
   "Kerusakan atau kendala wajib segera dilaporkan kepada pengelola laboratorium.",
-  "Kegiatan harus selesai sesuai waktu booking dan ruangan ditinggalkan dalam keadaan tertib."
+  "Kegiatan wajib mengikuti jadwal yang disetujui dan ruangan harus ditinggalkan dalam keadaan bersih serta rapi."
 ];
 
 function response(statusCode, data) {

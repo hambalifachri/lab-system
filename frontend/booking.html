@@ -37,8 +37,23 @@
           <div class="field full"><label id="purposeLabel" for="purpose">Keperluan *</label><textarea id="purpose" maxlength="500" placeholder="Jelaskan tujuan penggunaan laboratorium" required></textarea></div>
         </div>
         <div id="bookingNotice" class="notice section-space">Pengajuan yang tidak bentrok akan masuk ke admin. Simpan kode booking untuk memeriksa hasil persetujuan dan membaca peraturan lab.</div>
+        <section class="section-space">
+          <h2>Peraturan Laboratorium</h2>
+          <ol class="rules-list">
+            <li>Dilarang membawa atau mengonsumsi makanan di dalam laboratorium.</li>
+            <li>Minuman hanya diperbolehkan menggunakan tumbler atau botol air mineral yang tertutup rapat dan harus dijauhkan dari komputer.</li>
+            <li>Dilarang meninggalkan sampah dalam bentuk apa pun.</li>
+            <li>Dilarang memindahkan perangkat, mencabut kabel, atau mengubah susunan peralatan laboratorium.</li>
+            <li>Dilarang memasang atau menghapus aplikasi serta mengubah pengaturan komputer tanpa izin pengelola.</li>
+            <li>Peserta wajib menggunakan NIM masing-masing dan dilarang meminjamkan identitas.</li>
+            <li>Penanggung jawab wajib mengawasi peserta selama kegiatan berlangsung.</li>
+            <li>Kerusakan atau kendala harus segera dilaporkan kepada pengelola laboratorium.</li>
+            <li>Kegiatan wajib mengikuti jadwal yang disetujui dan ruangan harus ditinggalkan dalam keadaan bersih serta rapi.</li>
+          </ol>
+          <label class="accept-box"><input id="accept_rules" type="checkbox" required> Saya telah membaca, memahami, dan menyetujui seluruh peraturan laboratorium serta bersedia bertanggung jawab atas kegiatan yang diajukan.</label>
+        </section>
         <div id="message" class="status-message" role="alert"></div>
-        <div class="actions section-space"><button id="submitButton" class="btn" type="submit">Kirim Pengajuan</button><a class="btn secondary" href="/schedule.html">Batal</a></div>
+        <div class="actions section-space"><button id="submitButton" class="btn" type="submit" disabled>Kirim Pengajuan</button><a class="btn secondary" href="/schedule.html">Batal</a></div>
       </form>
     </section>
   </main>
@@ -115,6 +130,7 @@
     request_type.addEventListener("change", updateRequestType);
     academic_year.addEventListener("input", syncSemesterLabel);
     academic_period.addEventListener("change", syncSemesterLabel);
+    accept_rules.addEventListener("change", () => { submitButton.disabled = !accept_rules.checked; });
     updateRequestType();
 
     participant_file.addEventListener("change", async () => {
@@ -155,7 +171,7 @@
         borrower_name: borrower_name.value.trim(), borrower_role: borrower_role.value, borrower_contact: borrower_contact.value.trim(),
         booking_category: booking_category.value, class_name: class_name.value.trim(), participant_count: 25,
         academic_year: academic_year.value.trim(), academic_period: academic_period.value,
-        participant_nims: participantNims, purpose: purpose.value.trim()
+        participant_nims: participantNims, purpose: purpose.value.trim(), rules_accepted: accept_rules.checked
       };
 
       submitButton.disabled = true; submitButton.textContent = "Mengirim...";
@@ -166,7 +182,7 @@
         localStorage.setItem("last_booking_code", result.booking_code);
         location.href = `/booking-status.html?code=${encodeURIComponent(result.booking_code)}`;
       } catch (error) { showMessage(error.message || "Tidak dapat terhubung ke server.", "error"); }
-      finally { submitButton.disabled = false; submitButton.textContent = "Kirim Pengajuan"; }
+      finally { submitButton.disabled = !accept_rules.checked; submitButton.textContent = "Kirim Pengajuan"; }
     });
   </script>
 </body>

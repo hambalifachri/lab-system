@@ -5,12 +5,15 @@ const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
 const SCHEDULE_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 const SCHEDULE_PERIOD_TYPES = ["gasal", "antara_gasal", "genap", "antara_genap"];
 const LAB_RULES = [
+  "Dilarang membawa atau mengonsumsi makanan di dalam laboratorium.",
+  "Minuman hanya diperbolehkan menggunakan tumbler atau botol air mineral yang tertutup rapat dan harus dijauhkan dari komputer.",
+  "Dilarang meninggalkan sampah dalam bentuk apa pun.",
+  "Dilarang memindahkan perangkat, mencabut kabel, atau mengubah susunan peralatan laboratorium.",
+  "Dilarang memasang atau menghapus aplikasi serta mengubah pengaturan komputer tanpa izin pengelola.",
   "Peserta wajib login menggunakan NIM masing-masing dan dilarang meminjamkan identitas.",
-  "Dilarang memasang atau menghapus aplikasi tanpa izin pengelola laboratorium.",
-  "Dilarang mengubah konfigurasi komputer, jaringan, kabel, atau perangkat laboratorium.",
-  "Penanggung jawab memastikan ruangan tetap bersih, rapi, dan seluruh perangkat digunakan dengan baik.",
+  "Penanggung jawab wajib mengawasi peserta selama kegiatan berlangsung.",
   "Kerusakan atau kendala wajib segera dilaporkan kepada pengelola laboratorium.",
-  "Kegiatan harus selesai sesuai waktu booking dan ruangan ditinggalkan dalam keadaan tertib."
+  "Kegiatan wajib mengikuti jadwal yang disetujui dan ruangan harus ditinggalkan dalam keadaan bersih serta rapi."
 ];
 
 function json(status, body) {
@@ -750,12 +753,16 @@ async function createBooking(context, supabase) {
   const participantCount = Number(body.participant_count || 0);
   const academicYear = clean(body.academic_year, 9);
   const academicPeriod = clean(body.academic_period, 30);
+  const rulesAccepted = body.rules_accepted === true;
   const participantNims = [...new Set(Array.isArray(body.participant_nims)
     ? body.participant_nims.map(item => clean(item, 11)).filter(Boolean)
     : [])];
 
   if (!["single", "fixed_schedule"].includes(requestType)) {
     return json(400, { status: "error", message: "Jenis pengajuan tidak valid" });
+  }
+  if (!rulesAccepted) {
+    return json(400, { status: "error", message: "Peraturan laboratorium wajib dibaca dan disetujui" });
   }
   if (!roomId || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact ||
       (requestType === "single" && (!bookingDate || !purpose))) {
@@ -879,6 +886,7 @@ async function createBooking(context, supabase) {
     semester_label: requestType === "fixed_schedule" ? semesterLabel : null,
     period_start: requestType === "fixed_schedule" ? periodStart : null,
     period_end: requestType === "fixed_schedule" ? periodEnd : null,
+    rules_accepted_at: new Date().toISOString(),
     status: "pending"
   });
   if (error) throw error;
@@ -1007,7 +1015,7 @@ async function updateBookingStatus(context, supabase) {
     }
 
     const updateResult = await supabase.from("lab_bookings")
-      .update({ status: "approved", admin_note: adminNote, rules_accepted_at: null, schedule_id: scheduleId || null })
+      .update({ status: "approved", admin_note: adminNote, schedule_id: scheduleId || null })
       .eq("id", id);
     if (updateResult.error) {
       if (fixed && scheduleId && !booking.schedule_id) await supabase.from("lab_schedules").delete().eq("id", scheduleId);
@@ -1027,7 +1035,7 @@ async function updateBookingStatus(context, supabase) {
   }
   const { error } = await supabase
     .from("lab_bookings")
-    .update({ status, admin_note: adminNote, rules_accepted_at: null })
+    .update({ status, admin_note: adminNote })
     .eq("id", id);
   if (error) throw error;
   return json(200, {

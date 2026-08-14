@@ -84,12 +84,17 @@ exports.handler = async function(event) {
     const participantCount = Number(body.participant_count || 0);
     const academicYear = clean(body.academic_year, 9);
     const academicPeriod = clean(body.academic_period, 30);
+    const rulesAccepted = body.rules_accepted === true;
     const participantNims = [...new Set(Array.isArray(body.participant_nims)
       ? body.participant_nims.map(item => clean(item, 11)).filter(Boolean)
       : [])];
 
     if (!['single', 'fixed_schedule'].includes(requestType)) {
       return response(400, { status: "error", message: "Jenis pengajuan tidak valid" });
+    }
+
+    if (!rulesAccepted) {
+      return response(400, { status: "error", message: "Peraturan laboratorium wajib dibaca dan disetujui" });
     }
 
     if (!roomId || !startTime || !endTime || !borrowerName || !borrowerRole || !borrowerContact ||
@@ -265,6 +270,7 @@ exports.handler = async function(event) {
         semester_label: requestType === 'fixed_schedule' ? semesterLabel : null,
         period_start: requestType === 'fixed_schedule' ? periodStart : null,
         period_end: requestType === 'fixed_schedule' ? periodEnd : null,
+        rules_accepted_at: new Date().toISOString(),
         status: "pending"
       });
 
