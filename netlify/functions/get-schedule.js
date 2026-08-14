@@ -33,7 +33,8 @@ exports.handler = async function(event) {
     const { data: bookings, error: bookingError } = await supabase
       .from('lab_booking_view')
       .select('id, room_name, booking_date, day_name, start_time, end_time, borrower_name, borrower_role, purpose, status, booking_category, class_name, participant_count')
-      .eq('status', 'approved');
+      .eq('status', 'approved')
+      .eq('request_type', 'single');
 
     if (scheduleError || bookingError) {
       return response(500, {
