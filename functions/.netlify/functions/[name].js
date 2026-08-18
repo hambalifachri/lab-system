@@ -1087,6 +1087,64 @@ async function updateBookingStatus(context, supabase) {
   });
 }
 
+async function getScheduleDebug(context, supabase) {
+  if (!method(context.request, "GET")) {
+    return json(405, { status: "error", message: "Method tidak diizinkan" });
+  }
+
+  try {
+    const { data: allSchedules, error: allError } = await supabase
+      .from("lab_schedules")
+      .select("id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, status, semester_label, period_type, period_start, period_end, archived_at, created_at")
+      .order("created_at", { ascending: false });
+
+    if (allError) throw allError;
+
+    const { data: viewSchedules, error: viewError } = await supabase
+      .from("lab_schedule_view")
+      .select("*")
+      .order("period_start", { ascending: false });
+
+    if (viewError) throw viewError;
+
+    const { data: bookings, error: bookingError } = await supabase
+      .from("lab_bookings")
+      .select("id, booking_date, day_name, start_time, end_time, purpose, borrower_name, status, request_type, semester_label, period_start, period_end")
+      .eq("status", "approved")
+      .eq("request_type", "single")
+      .order("booking_date", { ascending: false });
+
+    if (bookingError) throw bookingError;
+
+    const statusCounts = {
+      active: allSchedules.filter(s => s.status === "active").length,
+      archived: allSchedules.filter(s => s.status === "archived").length,
+      pending: allSchedules.filter(s => s.status === "pending").length,
+      inactive: allSchedules.filter(s => s.status === "inactive").length
+    };
+
+    return json(200, {
+      status: "success",
+      summary: {
+        total_schedules: allSchedules.length,
+        status_breakdown: statusCounts,
+        schedules_in_view: viewSchedules.length,
+        approved_bookings: bookings.length,
+        current_date: new Date().toISOString().split("T")[0]
+      },
+      all_schedules: allSchedules.slice(0, 50),
+      view_schedules: viewSchedules.slice(0, 20),
+      approved_bookings: bookings.slice(0, 20)
+    });
+
+  } catch (error) {
+    return json(500, {
+      status: "error",
+      message: error.message
+    });
+  }
+}
+
 const handlers = {
   "login": login,
   "logout": logout,
@@ -1099,6 +1157,7 @@ const handlers = {
   "update-booking-participants": updateBookingParticipants,
   "admin-schedules": adminSchedules,
   "get-schedule": getSchedule,
+  "debug-schedule": getScheduleDebug,
   "get-rooms": getRooms,
   "create-booking": createBooking,
   "booking-status": bookingStatus,
