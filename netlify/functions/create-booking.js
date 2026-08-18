@@ -37,6 +37,14 @@ function createBookingCode(bookingDate) {
   return `LAB-${bookingDate.replaceAll('-', '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
 }
 
+function getAdminWhatsappLink() {
+  const rawNumber = String(process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_WHATSAPP || '081281400462').trim();
+  const digits = rawNumber.replace(/\D/g, '');
+  const whatsappNumber = digits.startsWith('0') ? `62${digits.slice(1)}` : digits;
+  if (!digits) return 'https://wa.me/6281281400462';
+  return `https://wa.me/${whatsappNumber}`;
+}
+
 const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const PERIODS = ['gasal', 'antara_gasal', 'genap', 'antara_genap'];
 
@@ -208,7 +216,8 @@ exports.handler = async function(event) {
     if (scheduleConflict) {
       return response(409, {
         status: "error",
-        message: "Jadwal bentrok dengan jadwal tetap lab"
+        message: "Jadwal bentrok dengan jadwal tetap lab. Silakan hubungi admin melalui WhatsApp untuk pengajuan lain.",
+        wa_admin_link: getAdminWhatsappLink()
       });
     }
 
@@ -241,38 +250,43 @@ exports.handler = async function(event) {
     if (bookingConflict) {
       return response(409, {
         status: "error",
-        message: "Jam tersebut sudah diajukan atau sudah dipinjam"
+        message: "Jam tersebut sudah diajukan atau sudah dipinjam. Silakan hubungi admin melalui WhatsApp untuk pengecekan lanjutan.",
+        wa_admin_link: getAdminWhatsappLink()
       });
     }
 
     // ================= SIMPAN BOOKING =================
     const bookingCode = createBookingCode(bookingDate);
-    const { error } = await supabase
+    const bookingInsert = {
+      room_id: roomId,
+      booking_date: bookingDate,
+      day_name: dayName,
+      start_time: startTime,
+      end_time: endTime,
+      borrower_name: borrowerName,
+      borrower_role: borrowerRole,
+      borrower_contact: borrowerContact,
+      purpose,
+      booking_code: bookingCode,
+      booking_category: bookingCategory,
+      class_name: className,
+      participant_count: participantCount,
+      participant_nims: participantNims,
+      academic_year: academicYear,
+      academic_period: academicPeriod,
+      request_type: requestType,
+      semester_label: requestType === 'fixed_schedule' ? semesterLabel : null,
+      period_start: requestType === 'fixed_schedule' ? periodStart : null,
+      period_end: requestType === 'fixed_schedule' ? periodEnd : null,
+      rules_accepted_at: new Date().toISOString(),
+      status: "approved"
+    };
+
+    const { data: insertedBooking, error } = await supabase
       .from('lab_bookings')
-      .insert({
-        room_id: roomId,
-        booking_date: bookingDate,
-        day_name: dayName,
-        start_time: startTime,
-        end_time: endTime,
-        borrower_name: borrowerName,
-        borrower_role: borrowerRole,
-        borrower_contact: borrowerContact,
-        purpose,
-        booking_code: bookingCode,
-        booking_category: bookingCategory,
-        class_name: className,
-        participant_count: participantCount,
-        participant_nims: participantNims,
-        academic_year: academicYear,
-        academic_period: academicPeriod,
-        request_type: requestType,
-        semester_label: requestType === 'fixed_schedule' ? semesterLabel : null,
-        period_start: requestType === 'fixed_schedule' ? periodStart : null,
-        period_end: requestType === 'fixed_schedule' ? periodEnd : null,
-        rules_accepted_at: new Date().toISOString(),
-        status: "pending"
-      });
+      .insert(bookingInsert)
+      .select('id')
+      .single();
 
     if (error) {
       return response(500, {
@@ -281,11 +295,49 @@ exports.handler = async function(event) {
       });
     }
 
+    if (requestType === 'fixed_schedule') {
+      const { data: scheduleInsert, error: scheduleError } = await supabase
+        .from('lab_schedules')
+        .insert({
+          room_id: roomId,
+          day_name: dayName,
+          start_time: startTime,
+          end_time: endTime,
+          subject: purpose || `Jadwal tetap ${className}`,
+          class_name: className,
+          lecturer_name: borrowerName,
+          schedule_type: bookingCategory === 'ujian' ? 'ujian' : bookingCategory === 'perkuliahan' ? 'kuliah' : 'lainnya',
+          status: 'active',
+          semester_label: semesterLabel,
+          period_type: academicPeriod,
+          period_start: periodStart,
+          period_end: periodEnd,
+          participant_count: participantCount,
+          participant_nims: participantNims,
+          archived_at: null
+        })
+        .select('id')
+        .single();
+
+      if (scheduleError) {
+        await supabase.from('lab_bookings').delete().eq('id', insertedBooking.id);
+        return response(500, {
+          status: "error",
+          message: "Gagal menyiapkan jadwal tetap di kalender lab"
+        });
+      }
+
+      await supabase
+        .from('lab_bookings')
+        .update({ schedule_id: scheduleInsert.id })
+        .eq('id', insertedBooking.id);
+    }
+
     return response(200, {
       status: "success",
       message: requestType === 'fixed_schedule'
-        ? "Pengajuan jadwal tetap berhasil dikirim dan menunggu persetujuan admin"
-        : "Pengajuan berhasil dikirim dan menunggu persetujuan admin",
+        ? "Pengajuan jadwal tetap otomatis disetujui dan sudah aktif di kalender lab"
+        : "Pengajuan otomatis disetujui dan sudah aktif untuk penggunaan lab",
       booking_code: bookingCode
     });
 

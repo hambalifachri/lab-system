@@ -46,33 +46,36 @@
   <script>
     const days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
     const todayIndex = new Date().getDay();
-    let selectedDay = days[todayIndex - 1] || "Senin";
+    let selectedDay = "Semua hari";
     let schedules = [], bookings = [];
     const esc = value => String(value ?? "-").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
     const time = value => value ? value.slice(0, 5) : "-";
     const date = value => value ? new Date(value + "T00:00:00").toLocaleDateString("id-ID", { day:"2-digit", month:"short", year:"numeric" }) : "-";
 
     function renderTabs() {
-      tabs.innerHTML = days.map(day => `<button class="tab ${day === selectedDay ? "active" : ""}" data-day="${day}">${day}</button>`).join("");
-      selectedLabel.textContent = selectedDay;
+      const tabsList = ["Semua hari", ...days];
+      tabs.innerHTML = tabsList.map(day => `<button class="tab ${day === selectedDay ? "active" : ""}" data-day="${day}">${day}</button>`).join("");
+      selectedLabel.textContent = selectedDay === "Semua hari" ? "Seluruh minggu" : selectedDay;
     }
 
     function scheduleTable(rows) {
-      if (!rows.length) return `<div class="empty">Belum ada jadwal tetap pada ${selectedDay}.</div>`;
-      return `<div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Kegiatan</th><th>Ruangan</th></tr></thead><tbody>${rows.map(row => `
-        <tr><td class="time">${time(row.start_time)}–${time(row.end_time)}</td><td><strong>${esc(row.subject)}</strong><br><span class="muted small">${esc(row.class_name)} · ${esc(row.lecturer_name)}</span><br><span class="muted small">${esc(row.semester_label)}: ${esc(row.period_start)} s.d. ${esc(row.period_end)}</span></td><td><span class="badge">${esc(row.room_name)}</span></td></tr>`).join("")}</tbody></table></div>`;
+      if (!rows.length) return `<div class="empty">Belum ada jadwal tetap ${selectedDay === "Semua hari" ? "pada minggu ini" : `pada ${selectedDay}` }.</div>`;
+      return `<div class="table-wrap"><table><thead><tr><th>Hari</th><th>Waktu</th><th>Kegiatan</th><th>Ruangan</th></tr></thead><tbody>${rows.map(row => `
+        <tr><td><strong>${esc(row.day_name)}</strong></td><td class="time">${time(row.start_time)}–${time(row.end_time)}</td><td><strong>${esc(row.subject)}</strong><br><span class="muted small">${esc(row.class_name)} · ${esc(row.lecturer_name)}</span><br><span class="muted small">${esc(row.semester_label)}: ${esc(row.period_start)} s.d. ${esc(row.period_end)}</span></td><td><span class="badge">${esc(row.room_name)}</span></td></tr>`).join("")}</tbody></table></div>`;
     }
 
     function bookingTable(rows) {
-      if (!rows.length) return `<div class="empty">Belum ada booking disetujui pada ${selectedDay}.</div>`;
-      return `<div class="table-wrap"><table><thead><tr><th>Tanggal/Waktu</th><th>Peminjam</th><th>Ruangan</th></tr></thead><tbody>${rows.map(row => `
-        <tr><td><strong>${date(row.booking_date)}</strong><br><span class="time small">${time(row.start_time)}–${time(row.end_time)}</span></td><td><strong>${esc(row.borrower_name)}</strong><br><span class="muted small">${esc(row.purpose)}</span></td><td><span class="badge approved">${esc(row.room_name)}</span></td></tr>`).join("")}</tbody></table></div>`;
+      if (!rows.length) return `<div class="empty">Belum ada booking disetujui ${selectedDay === "Semua hari" ? "pada minggu ini" : `pada ${selectedDay}` }.</div>`;
+      return `<div class="table-wrap"><table><thead><tr><th>Hari</th><th>Tanggal/Waktu</th><th>Peminjam</th><th>Ruangan</th></tr></thead><tbody>${rows.map(row => `
+        <tr><td><strong>${esc(row.day_name)}</strong></td><td><strong>${date(row.booking_date)}</strong><br><span class="time small">${time(row.start_time)}–${time(row.end_time)}</span></td><td><strong>${esc(row.borrower_name)}</strong><br><span class="muted small">${esc(row.purpose)}</span></td><td><span class="badge approved">${esc(row.room_name)}</span></td></tr>`).join("")}</tbody></table></div>`;
     }
 
     function render() {
       renderTabs();
-      scheduleBox.innerHTML = scheduleTable(schedules.filter(row => row.day_name === selectedDay));
-      bookingBox.innerHTML = bookingTable(bookings.filter(row => row.day_name === selectedDay));
+      const filteredSchedules = selectedDay === "Semua hari" ? schedules : schedules.filter(row => row.day_name === selectedDay);
+      const filteredBookings = selectedDay === "Semua hari" ? bookings : bookings.filter(row => row.day_name === selectedDay);
+      scheduleBox.innerHTML = scheduleTable(filteredSchedules);
+      bookingBox.innerHTML = bookingTable(filteredBookings);
     }
 
     function csvCell(value) { return `"${String(value ?? "").replaceAll('"', '""')}"`; }

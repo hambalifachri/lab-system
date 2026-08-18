@@ -123,8 +123,8 @@
       academic_period.querySelector('option[value="di_luar_periode"]').disabled = fixed;
       if (fixed && academic_period.value === "di_luar_periode") academic_period.value = "gasal";
       bookingNotice.textContent = fixed
-        ? "Jadwal akan berulang setiap minggu pada periode semester yang dipilih. Setelah admin menyetujui, jadwal otomatis masuk ke kalender lab."
-        : "Pengajuan yang tidak bentrok akan masuk ke admin. Simpan kode booking untuk memeriksa hasil persetujuan dan membaca peraturan lab.";
+        ? "Jadwal akan berulang setiap minggu pada periode semester yang dipilih. Jika tidak bentrok, pengajuan otomatis disetujui dan langsung aktif di kalender lab."
+        : "Pengajuan otomatis disetujui bila tidak bentrok. Jika ada bentrok, sistem akan mengarahkan ke WhatsApp admin agar dapat dibahas lebih lanjut.";
       syncSemesterLabel();
     }
     request_type.addEventListener("change", updateRequestType);
@@ -178,7 +178,14 @@
       try {
         const response = await fetch("/.netlify/functions/create-booking", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
         const result = await response.json();
-        if (!response.ok || result.status !== "success") throw new Error(result.message || "Pengajuan gagal");
+        if (!response.ok || result.status !== "success") {
+          const waLink = result && result.wa_admin_link ? result.wa_admin_link : "https://wa.me/6281234567890";
+          showMessage(result.message || "Pengajuan gagal", "error");
+          if (result && result.wa_admin_link) {
+            window.open(waLink, "_blank", "noopener,noreferrer");
+          }
+          return;
+        }
         localStorage.setItem("last_booking_code", result.booking_code);
         location.href = `/booking-status.html?code=${encodeURIComponent(result.booking_code)}`;
       } catch (error) { showMessage(error.message || "Tidak dapat terhubung ke server.", "error"); }

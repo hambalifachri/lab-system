@@ -90,6 +90,14 @@ function createBookingCode(bookingDate) {
   return `LAB-${bookingDate.replaceAll("-", "")}-${random}`;
 }
 
+function getAdminWhatsappLink() {
+  const rawNumber = String((globalThis.__ENV__ && globalThis.__ENV__.ADMIN_WHATSAPP_NUMBER) || (globalThis.__ENV__ && globalThis.__ENV__.ADMIN_WHATSAPP) || "081281400462").trim();
+  const digits = rawNumber.replace(/\D/g, "");
+  const whatsappNumber = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+  if (!digits) return "https://wa.me/6281281400462";
+  return `https://wa.me/${whatsappNumber}`;
+}
+
 function validBookingCode(value) {
   return /^LAB-[A-Z0-9-]{8,32}$/.test(value || "");
 }
@@ -838,7 +846,11 @@ async function createBooking(context, supabase) {
     isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
   );
   if (scheduleConflict) {
-    return json(409, { status: "error", message: "Jadwal bentrok dengan jadwal tetap lab" });
+    return json(409, {
+      status: "error",
+      message: "Jadwal bentrok dengan jadwal tetap lab. Silakan hubungi admin melalui WhatsApp untuk pengajuan lain.",
+      wa_admin_link: getAdminWhatsappLink()
+    });
   }
 
   const baseFields = "start_time, end_time, request_type, booking_date, period_start, period_end";
@@ -861,11 +873,15 @@ async function createBooking(context, supabase) {
     isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
   );
   if (bookingConflict) {
-    return json(409, { status: "error", message: "Jam tersebut sudah diajukan atau sudah dipinjam" });
+    return json(409, {
+      status: "error",
+      message: "Jam tersebut sudah diajukan atau sudah dipinjam. Silakan hubungi admin melalui WhatsApp untuk pengecekan lanjutan.",
+      wa_admin_link: getAdminWhatsappLink()
+    });
   }
 
   const bookingCode = createBookingCode(bookingDate);
-  const { error } = await supabase.from("lab_bookings").insert({
+  const { data: insertedBooking, error } = await supabase.from("lab_bookings").insert({
     room_id: roomId,
     booking_date: bookingDate,
     day_name: dayName,
@@ -887,14 +903,41 @@ async function createBooking(context, supabase) {
     period_start: requestType === "fixed_schedule" ? periodStart : null,
     period_end: requestType === "fixed_schedule" ? periodEnd : null,
     rules_accepted_at: new Date().toISOString(),
-    status: "pending"
-  });
+    status: "approved"
+  }).select("id").single();
   if (error) throw error;
+
+  if (requestType === "fixed_schedule") {
+    const { data: scheduleInsert, error: scheduleError } = await supabase.from("lab_schedules").insert({
+      room_id: roomId,
+      day_name: dayName,
+      start_time: startTime,
+      end_time: endTime,
+      subject: purpose || `Jadwal tetap ${className}`,
+      class_name: className,
+      lecturer_name: borrowerName,
+      schedule_type: bookingCategory === "ujian" ? "ujian" : bookingCategory === "perkuliahan" ? "kuliah" : "lainnya",
+      status: "active",
+      semester_label: semesterLabel,
+      period_type: academicPeriod,
+      period_start: periodStart,
+      period_end: periodEnd,
+      participant_count: participantCount,
+      participant_nims: participantNims,
+      archived_at: null
+    }).select("id").single();
+    if (scheduleError) {
+      await supabase.from("lab_bookings").delete().eq("id", insertedBooking.id);
+      return json(500, { status: "error", message: "Gagal menyiapkan jadwal tetap di kalender lab" });
+    }
+    await supabase.from("lab_bookings").update({ schedule_id: scheduleInsert.id }).eq("id", insertedBooking.id);
+  }
+
   return json(200, {
     status: "success",
     message: requestType === "fixed_schedule"
-      ? "Pengajuan jadwal tetap berhasil dikirim dan menunggu persetujuan admin"
-      : "Pengajuan berhasil dikirim dan menunggu persetujuan admin",
+      ? "Pengajuan jadwal tetap otomatis disetujui dan sudah aktif di kalender lab"
+      : "Pengajuan otomatis disetujui dan sudah aktif untuk penggunaan lab",
     booking_code: bookingCode
   });
 }
