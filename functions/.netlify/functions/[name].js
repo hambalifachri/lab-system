@@ -102,15 +102,16 @@ function validBookingCode(value) {
   return /^LAB-[A-Z0-9-]{8,32}$/.test(value || "");
 }
 
-function fixedPeriod(academicYear, periodType) {
+async function fixedPeriod(supabase, academicYear, periodType) {
   const years = String(academicYear || "").match(/^(\d{4})\/(\d{4})$/);
   if (!years) return null;
   const startYear = years[1], endYear = years[2];
-  const ranges = {
+  const defaults = {
     gasal: [`${startYear}-09-01`, `${startYear}-10-31`, "Semester Gasal"],
     genap: [`${endYear}-03-01`, `${endYear}-05-31`, "Semester Genap"],
   };
-  const range = ranges[periodType];
+  const { data } = await supabase.from("lab_period_settings").select("start_month,start_day,end_month,end_day").eq("period_type", periodType).maybeSingle();
+  const range = data ? [`${periodType === "gasal" ? startYear : endYear}-${String(data.start_month).padStart(2,"0")}-${String(data.start_day).padStart(2,"0")}`, `${periodType === "gasal" ? startYear : endYear}-${String(data.end_month).padStart(2,"0")}-${String(data.end_day).padStart(2,"0")}`, defaults[periodType]?.[2]] : defaults[periodType];
   return range ? { start: range[0], end: range[1], label: `${academicYear} ${range[2]}` } : null;
 }
 
@@ -619,6 +620,19 @@ async function adminSchedules(context, supabase) {
   const body = await readBody(context.request);
   const action = body.action || "save";
   const id = Number(body.id || 0);
+  if (action === "get_period_settings") {
+    const { data, error } = await supabase.from("lab_period_settings").select("period_type, start_month, start_day, end_month, end_day");
+    if (error) throw error;
+    return json(200, { status: "success", data: data || [] });
+  }
+  if (action === "save_period_settings") {
+    const periods = Array.isArray(body.periods) ? body.periods : [];
+    const valid = periods.length === 2 && new Set(periods.map((row) => row.period_type)).size === 2 && periods.every((row) => ["gasal", "genap"].includes(row.period_type) && [row.start_month, row.start_day, row.end_month, row.end_day].every(Number.isInteger) && row.start_month >= 1 && row.start_month <= 12 && row.end_month >= 1 && row.end_month <= 12 && row.start_day >= 1 && row.start_day <= 31 && row.end_day >= 1 && row.end_day <= 31);
+    if (!valid) return json(400, { status: "error", message: "Data periode Gasal dan Genap tidak valid" });
+    const { error } = await supabase.from("lab_period_settings").upsert(periods.map((row) => ({ ...row, updated_at: (/* @__PURE__ */ new Date()).toISOString() })), { onConflict: "period_type" });
+    if (error) throw error;
+    return json(200, { status: "success", message: "Periode semester berhasil disimpan" });
+  }
 
   if (action === "archive") {
     const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(Number).filter(Number.isInteger))];
@@ -844,7 +858,7 @@ async function createBooking(context, supabase) {
     return json(400, { status: "error", message: "Tahun akademik atau periode semester tidak valid" });
   }
   if (requestType === "fixed_schedule") {
-    const period = fixedPeriod(academicYear, academicPeriod);
+    const period = await fixedPeriod(supabase, academicYear, academicPeriod);
     if (!period) return json(400, { status: "error", message: "Periode semester tidak valid" });
     periodStart = period.start;
     periodEnd = period.end;

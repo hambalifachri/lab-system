@@ -56,6 +56,22 @@ exports.handler = async function(event) {
     const action = body.action || "save";
     const id = Number(body.id || 0);
 
+    if (action === "get_period_settings") {
+      const { data, error } = await supabase.from("lab_period_settings").select("period_type, start_month, start_day, end_month, end_day");
+      if (error) throw error;
+      return response(200, { status: "success", data: data || [] });
+    }
+    if (action === "save_period_settings") {
+      const periods = Array.isArray(body.periods) ? body.periods : [];
+      const valid = periods.length === 2 && new Set(periods.map(row => row.period_type)).size === 2 && periods.every(row =>
+        ["gasal", "genap"].includes(row.period_type) && [row.start_month, row.start_day, row.end_month, row.end_day].every(Number.isInteger) &&
+        row.start_month >= 1 && row.start_month <= 12 && row.end_month >= 1 && row.end_month <= 12 && row.start_day >= 1 && row.start_day <= 31 && row.end_day >= 1 && row.end_day <= 31);
+      if (!valid) return response(400, { status: "error", message: "Data periode Gasal dan Genap tidak valid" });
+      const { error } = await supabase.from("lab_period_settings").upsert(periods.map(row => ({ ...row, updated_at: new Date().toISOString() })), { onConflict: "period_type" });
+      if (error) throw error;
+      return response(200, { status: "success", message: "Periode semester berhasil disimpan" });
+    }
+
     if (action === "archive") {
       const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(Number).filter(Number.isInteger))];
       const semesterLabel = clean(body.semester_label, 80);

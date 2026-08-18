@@ -48,15 +48,16 @@ function getAdminWhatsappLink() {
 const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const PERIODS = ['gasal', 'genap'];
 
-function fixedPeriod(academicYear, periodType) {
+async function fixedPeriod(supabase, academicYear, periodType) {
   const years = String(academicYear || '').match(/^(\d{4})\/(\d{4})$/);
   if (!years) return null;
   const startYear = years[1], endYear = years[2];
-  const ranges = {
+  const defaults = {
     gasal: [`${startYear}-09-01`, `${startYear}-10-31`, 'Semester Gasal'],
     genap: [`${endYear}-03-01`, `${endYear}-05-31`, 'Semester Genap'],
   };
-  const range = ranges[periodType];
+  const { data } = await supabase.from('lab_period_settings').select('start_month,start_day,end_month,end_day').eq('period_type', periodType).maybeSingle();
+  const range = data ? [`${periodType === 'gasal' ? startYear : endYear}-${String(data.start_month).padStart(2,'0')}-${String(data.start_day).padStart(2,'0')}`, `${periodType === 'gasal' ? startYear : endYear}-${String(data.end_month).padStart(2,'0')}-${String(data.end_day).padStart(2,'0')}`, defaults[periodType]?.[2]] : defaults[periodType];
   return range ? { start: range[0], end: range[1], label: `${academicYear} ${range[2]}` } : null;
 }
 
@@ -134,7 +135,7 @@ exports.handler = async function(event) {
     }
 
     if (requestType === 'fixed_schedule') {
-      const period = fixedPeriod(academicYear, academicPeriod);
+      const period = await fixedPeriod(supabase, academicYear, academicPeriod);
       if (!period) return response(400, { status: "error", message: "Periode semester tidak valid" });
       periodStart = period.start;
       periodEnd = period.end;
