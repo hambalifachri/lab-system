@@ -1,6 +1,6 @@
 // ================= DIAGNOSTIC ENDPOINT =================
 // GET /.netlify/functions/debug-schedule
-// Shows all active schedules and their status for debugging
+// Shows detailed diagnostic info about schedule data and view filtering
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -23,7 +23,7 @@ exports.handler = async function(event) {
   }
 
   try {
-    // Get all schedules regardless of status
+    // 1. Get all schedules regardless of status
     const { data: allSchedules, error: allError } = await supabase
       .from('lab_schedules')
       .select('id, room_id, day_name, start_time, end_time, subject, class_name, lecturer_name, status, semester_label, period_type, period_start, period_end, archived_at, created_at')
@@ -31,7 +31,7 @@ exports.handler = async function(event) {
 
     if (allError) throw allError;
 
-    // Get from the public view
+    // 2. Get from the public view
     const { data: viewSchedules, error: viewError } = await supabase
       .from('lab_schedule_view')
       .select('*')
@@ -39,7 +39,7 @@ exports.handler = async function(event) {
 
     if (viewError) throw viewError;
 
-    // Get approved single bookings
+    // 3. Get approved single bookings
     const { data: bookings, error: bookingError } = await supabase
       .from('lab_bookings')
       .select('id, booking_date, day_name, start_time, end_time, purpose, borrower_name, status, request_type, semester_label, period_start, period_end')
@@ -48,6 +48,38 @@ exports.handler = async function(event) {
       .order('booking_date', { ascending: false });
 
     if (bookingError) throw bookingError;
+
+    // 4. Check rooms
+    const { data: rooms, error: roomError } = await supabase
+      .from('lab_rooms')
+      .select('id, room_name');
+
+    if (roomError) throw roomError;
+
+    // 5. Analyze why schedules might not appear in view
+    const analysisIssues = [];
+    const allActive = allSchedules.filter(s => s.status === 'active');
+    
+    allActive.forEach(sched => {
+      const issues = [];
+      
+      if (!sched.period_start) issues.push('period_start is NULL');
+      if (!sched.period_end) issues.push('period_end is NULL');
+      if (sched.period_start && sched.period_end && sched.period_end < sched.period_start) {
+        issues.push('period_end < period_start');
+      }
+      
+      const room = rooms.find(r => r.id === sched.room_id);
+      if (!room) issues.push(`room_id ${sched.room_id} not found`);
+      
+      if (issues.length > 0) {
+        analysisIssues.push({
+          id: sched.id,
+          subject: sched.subject,
+          issues
+        });
+      }
+    });
 
     // Count by status
     const statusCounts = {
@@ -64,17 +96,31 @@ exports.handler = async function(event) {
         status_breakdown: statusCounts,
         schedules_in_view: viewSchedules.length,
         approved_bookings: bookings.length,
-        current_date: new Date().toISOString().split('T')[0]
+        rooms_total: rooms.length,
+        current_date: new Date().toISOString().split('T')[0],
+        diagnosis: {
+          data_exists: allSchedules.length > 0,
+          active_schedules_exist: allActive.length > 0,
+          view_shows_nothing: viewSchedules.length === 0,
+          possible_issue: allActive.length > 0 && viewSchedules.length === 0 
+            ? 'Data exists but filtered out by view conditions' 
+            : allActive.length === 0 
+            ? 'No active schedules in database at all' 
+            : 'Data properly displayed in view'
+        }
       },
-      all_schedules: allSchedules.slice(0, 50),
-      view_schedules: viewSchedules.slice(0, 20),
-      approved_bookings: bookings.slice(0, 20)
+      filter_issues: analysisIssues,
+      sample_raw_schedules: allSchedules.slice(0, 10),
+      view_schedules: viewSchedules.slice(0, 10),
+      rooms_available: rooms,
+      sample_bookings: bookings.slice(0, 5)
     });
 
   } catch (error) {
     return response(500, {
       status: "error",
-      message: error.message
+      message: error.message,
+      stack: error.stack
     });
   }
 };

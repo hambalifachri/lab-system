@@ -1116,6 +1116,33 @@ async function getScheduleDebug(context, supabase) {
 
     if (bookingError) throw bookingError;
 
+    const { data: rooms, error: roomError } = await supabase
+      .from("lab_rooms")
+      .select("id, room_name");
+
+    if (roomError) throw roomError;
+
+    const analysisIssues = [];
+    const allActive = allSchedules.filter(s => s.status === "active");
+    
+    allActive.forEach(sched => {
+      const issues = [];
+      if (!sched.period_start) issues.push("period_start is NULL");
+      if (!sched.period_end) issues.push("period_end is NULL");
+      if (sched.period_start && sched.period_end && new Date(sched.period_end) < new Date(sched.period_start)) {
+        issues.push("period_end < period_start");
+      }
+      const room = rooms.find(r => r.id === sched.room_id);
+      if (!room) issues.push(`room_id ${sched.room_id} not found`);
+      if (issues.length > 0) {
+        analysisIssues.push({
+          id: sched.id,
+          subject: sched.subject,
+          issues
+        });
+      }
+    });
+
     const statusCounts = {
       active: allSchedules.filter(s => s.status === "active").length,
       archived: allSchedules.filter(s => s.status === "archived").length,
@@ -1130,11 +1157,24 @@ async function getScheduleDebug(context, supabase) {
         status_breakdown: statusCounts,
         schedules_in_view: viewSchedules.length,
         approved_bookings: bookings.length,
-        current_date: new Date().toISOString().split("T")[0]
+        rooms_total: rooms.length,
+        current_date: new Date().toISOString().split("T")[0],
+        diagnosis: {
+          data_exists: allSchedules.length > 0,
+          active_schedules_exist: allActive.length > 0,
+          view_shows_nothing: viewSchedules.length === 0,
+          possible_issue: allActive.length > 0 && viewSchedules.length === 0 
+            ? "Data exists but filtered out by view conditions" 
+            : allActive.length === 0 
+            ? "No active schedules in database at all" 
+            : "Data properly displayed in view"
+        }
       },
-      all_schedules: allSchedules.slice(0, 50),
-      view_schedules: viewSchedules.slice(0, 20),
-      approved_bookings: bookings.slice(0, 20)
+      filter_issues: analysisIssues,
+      sample_raw_schedules: allSchedules.slice(0, 10),
+      view_schedules: viewSchedules.slice(0, 10),
+      rooms_available: rooms,
+      sample_bookings: bookings.slice(0, 5)
     });
 
   } catch (error) {
