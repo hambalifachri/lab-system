@@ -22,6 +22,30 @@
       </nav>
     </header>
 
+    <section class="filters" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+      <div>
+        <label for="periodSelect" style="display: block; margin-bottom: 7px; font-size: 13px; color: #dbe7f6; font-weight: 700;">Tahun Akademik</label>
+        <select id="periodSelect" style="width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 12px 13px; color: var(--text); background: #091525; outline: none;">
+          <option value="">Semua Tahun</option>
+          <option value="2024/2025">2024/2025</option>
+          <option value="2025/2026">2025/2026</option>
+          <option value="2026/2027">2026/2027</option>
+          <option value="2027/2028">2027/2028</option>
+          <option value="2028/2029">2028/2029</option>
+        </select>
+      </div>
+      <div>
+        <label for="semesterSelect" style="display: block; margin-bottom: 7px; font-size: 13px; color: #dbe7f6; font-weight: 700;">Semester</label>
+        <select id="semesterSelect" style="width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 12px 13px; color: var(--text); background: #091525; outline: none;">
+          <option value="">Semua Semester</option>
+          <option value="gasal">Gasal</option>
+          <option value="antara_gasal">Antara Gasal (Gasal Pendek)</option>
+          <option value="genap">Genap</option>
+          <option value="antara_genap">Antara Genap (Genap Pendek)</option>
+        </select>
+      </div>
+    </section>
+
     <section class="stats">
       <div class="stat"><span class="muted small">Jadwal tetap</span><strong id="scheduleCount">—</strong></div>
       <div class="stat"><span class="muted small">Booking disetujui</span><strong id="bookingCount">—</strong></div>
@@ -48,6 +72,7 @@
     const todayIndex = new Date().getDay();
     let selectedDay = "Semua hari";
     let schedules = [], bookings = [];
+    let activeFilters = { academic_year: '', academic_period: '' };
     const esc = value => String(value ?? "-").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
     const time = value => value ? value.slice(0, 5) : "-";
     const date = value => value ? new Date(value + "T00:00:00").toLocaleDateString("id-ID", { day:"2-digit", month:"short", year:"numeric" }) : "-";
@@ -90,6 +115,30 @@
       link.click(); URL.revokeObjectURL(link.href);
     }
 
+    function loadSchedules() {
+      const params = new URLSearchParams();
+      if (activeFilters.academic_year) params.append('academic_year', activeFilters.academic_year);
+      if (activeFilters.academic_period) params.append('academic_period', activeFilters.academic_period);
+      
+      const url = `/.netlify/functions/get-schedule${params.toString() ? '?' + params.toString() : ''}`;
+      fetch(url, { cache: "no-store" })
+        .then(async response => ({ ok: response.ok, body: await response.json() }))
+        .then(({ ok, body }) => {
+          if (!ok || body.status !== "success") throw new Error(body.message);
+          schedules = body.schedules || [];
+          bookings = body.bookings || [];
+          scheduleCount.textContent = schedules.length;
+          bookingCount.textContent = bookings.length;
+          roomCount.textContent = new Set([...schedules, ...bookings].map(item => item.room_name)).size || "0";
+          selectedDay = "Semua hari";
+          render();
+        })
+        .catch(() => {
+          scheduleBox.innerHTML = bookingBox.innerHTML = `<div class="empty">Data belum dapat dimuat. Silakan coba lagi.</div>`;
+          renderTabs();
+        });
+    }
+
     tabs.addEventListener("click", event => {
       const button = event.target.closest("[data-day]");
       if (!button) return;
@@ -97,21 +146,17 @@
       render();
     });
 
-    fetch("/.netlify/functions/get-schedule", { cache: "no-store" })
-      .then(async response => ({ ok: response.ok, body: await response.json() }))
-      .then(({ ok, body }) => {
-        if (!ok || body.status !== "success") throw new Error(body.message);
-        schedules = body.schedules || [];
-        bookings = body.bookings || [];
-        scheduleCount.textContent = schedules.length;
-        bookingCount.textContent = bookings.length;
-        roomCount.textContent = new Set([...schedules, ...bookings].map(item => item.room_name)).size || "0";
-        render();
-      })
-      .catch(() => {
-        scheduleBox.innerHTML = bookingBox.innerHTML = `<div class="empty">Data belum dapat dimuat. Silakan coba lagi.</div>`;
-        renderTabs();
-      });
+    periodSelect.addEventListener('change', (e) => {
+      activeFilters.academic_year = e.target.value;
+      loadSchedules();
+    });
+
+    semesterSelect.addEventListener('change', (e) => {
+      activeFilters.academic_period = e.target.value;
+      loadSchedules();
+    });
+
+    loadSchedules();
   </script>
 </body>
 </html>

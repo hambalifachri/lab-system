@@ -544,19 +544,43 @@ async function getSchedule(context, supabase) {
   if (!method(context.request, "GET")) {
     return json(405, { status: "error", message: "Method tidak diizinkan" });
   }
-  const schedulesResult = await supabase.from("lab_schedule_view").select("*");
-  const bookingsResult = await supabase
+  const url = new URL(context.request.url);
+  const academicYear = url.searchParams.get('academic_year')?.trim() || null;
+  const academicPeriod = url.searchParams.get('academic_period')?.trim() || null;
+
+  let scheduleQuery = supabase.from("lab_schedule_view").select("*");
+  if (academicYear) {
+    scheduleQuery = scheduleQuery.ilike('semester_label', `%${academicYear}%`);
+  }
+  if (academicPeriod) {
+    scheduleQuery = scheduleQuery.eq('period_type', academicPeriod);
+  }
+  const schedulesResult = await scheduleQuery;
+
+  let bookingQuery = supabase
     .from("lab_booking_view")
     .select("id, room_name, booking_date, day_name, start_time, end_time, borrower_name, borrower_role, purpose, status, booking_category, class_name, participant_count")
     .eq("status", "approved")
     .eq("request_type", "single");
+  if (academicYear) {
+    bookingQuery = bookingQuery.ilike('semester_label', `%${academicYear}%`);
+  }
+  if (academicPeriod) {
+    bookingQuery = bookingQuery.eq('academic_period', academicPeriod);
+  }
+  const bookingsResult = await bookingQuery;
+
   if (schedulesResult.error || bookingsResult.error) {
     return json(500, { status: "error", message: "Gagal mengambil jadwal" });
   }
   return json(200, {
     status: "success",
     schedules: schedulesResult.data,
-    bookings: bookingsResult.data
+    bookings: bookingsResult.data,
+    filters: {
+      academic_year: academicYear,
+      academic_period: academicPeriod
+    }
   });
 }
 

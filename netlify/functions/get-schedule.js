@@ -26,15 +26,37 @@ exports.handler = async function(event) {
   }
 
   try {
-    const { data: schedules, error: scheduleError } = await supabase
+    const url = new URL(event.rawUrl || `http://localhost${event.path}${event.rawQueryString ? '?' + event.rawQueryString : ''}`);
+    const academicYear = url.searchParams.get('academic_year')?.trim() || null;
+    const academicPeriod = url.searchParams.get('academic_period')?.trim() || null;
+
+    let scheduleQuery = supabase
       .from('lab_schedule_view')
       .select('*');
 
-    const { data: bookings, error: bookingError } = await supabase
+    if (academicYear) {
+      scheduleQuery = scheduleQuery.ilike('semester_label', `%${academicYear}%`);
+    }
+    if (academicPeriod) {
+      scheduleQuery = scheduleQuery.eq('period_type', academicPeriod);
+    }
+
+    const { data: schedules, error: scheduleError } = await scheduleQuery;
+
+    let bookingQuery = supabase
       .from('lab_booking_view')
       .select('id, room_name, booking_date, day_name, start_time, end_time, borrower_name, borrower_role, purpose, status, booking_category, class_name, participant_count')
       .eq('status', 'approved')
       .eq('request_type', 'single');
+
+    if (academicYear) {
+      bookingQuery = bookingQuery.ilike('semester_label', `%${academicYear}%`);
+    }
+    if (academicPeriod) {
+      bookingQuery = bookingQuery.eq('academic_period', academicPeriod);
+    }
+
+    const { data: bookings, error: bookingError } = await bookingQuery;
 
     if (scheduleError || bookingError) {
       return response(500, {
@@ -46,7 +68,11 @@ exports.handler = async function(event) {
     return response(200, {
       status: "success",
       schedules,
-      bookings
+      bookings,
+      filters: {
+        academic_year: academicYear,
+        academic_period: academicPeriod
+      }
     });
 
   } catch (error) {
