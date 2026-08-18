@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
 const SCHEDULE_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-const SCHEDULE_PERIOD_TYPES = ["gasal", "antara_gasal", "genap", "antara_genap"];
+const SCHEDULE_PERIOD_TYPES = ["gasal", "genap"];
 const LAB_RULES = [
   "Dilarang membawa atau mengonsumsi makanan di dalam laboratorium.",
   "Minuman hanya diperbolehkan menggunakan tumbler atau botol air mineral yang tertutup rapat dan harus dijauhkan dari komputer.",
@@ -108,9 +108,7 @@ function fixedPeriod(academicYear, periodType) {
   const startYear = years[1], endYear = years[2];
   const ranges = {
     gasal: [`${startYear}-09-01`, `${startYear}-10-31`, "Semester Gasal"],
-    antara_gasal: [`${endYear}-02-01`, `${endYear}-03-31`, "Semester Antara Gasal"],
     genap: [`${endYear}-03-01`, `${endYear}-05-31`, "Semester Genap"],
-    antara_genap: [`${endYear}-08-01`, `${endYear}-09-30`, "Semester Antara Genap"]
   };
   const range = ranges[periodType];
   return range ? { start: range[0], end: range[1], label: `${academicYear} ${range[2]}` } : null;

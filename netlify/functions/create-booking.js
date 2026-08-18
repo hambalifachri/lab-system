@@ -46,7 +46,7 @@ function getAdminWhatsappLink() {
 }
 
 const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-const PERIODS = ['gasal', 'antara_gasal', 'genap', 'antara_genap'];
+const PERIODS = ['gasal', 'genap'];
 
 function fixedPeriod(academicYear, periodType) {
   const years = String(academicYear || '').match(/^(\d{4})\/(\d{4})$/);
@@ -54,9 +54,7 @@ function fixedPeriod(academicYear, periodType) {
   const startYear = years[1], endYear = years[2];
   const ranges = {
     gasal: [`${startYear}-09-01`, `${startYear}-10-31`, 'Semester Gasal'],
-    antara_gasal: [`${endYear}-02-01`, `${endYear}-03-31`, 'Semester Antara Gasal'],
     genap: [`${endYear}-03-01`, `${endYear}-05-31`, 'Semester Genap'],
-    antara_genap: [`${endYear}-08-01`, `${endYear}-09-30`, 'Semester Antara Genap']
   };
   const range = ranges[periodType];
   return range ? { start: range[0], end: range[1], label: `${academicYear} ${range[2]}` } : null;

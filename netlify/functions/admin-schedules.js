@@ -6,7 +6,7 @@ const supabase = createClient(
 );
 
 const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-const PERIOD_TYPES = ["gasal", "antara_gasal", "genap", "antara_genap"];
+const PERIOD_TYPES = ["gasal", "genap"];
 
 function response(statusCode, data) {
   return {

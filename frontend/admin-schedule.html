@@ -21,7 +21,7 @@
           <div class="form-grid">
             <div class="field"><label for="room_id">Ruangan *</label><select id="room_id" required><option value="">Memuat...</option></select></div>
             <div class="field"><label for="semester_label">Semester *</label><input id="semester_label" maxlength="80" placeholder="Contoh: 2025/2026 Genap" required></div>
-            <div class="field full"><label for="period_type">Jenis periode *</label><select id="period_type" required><option value="gasal">Semester Gasal</option><option value="antara_gasal">Semester Antara Gasal</option><option value="genap">Semester Genap</option><option value="antara_genap">Semester Antara Genap</option></select><span class="muted small">Tanggal bawaan dapat diedit, terutama untuk semester antara.</span></div>
+            <div class="field full"><label for="period_type">Jenis periode *</label><select id="period_type" required><option value="gasal">Semester Gasal</option><option value="genap">Semester Genap</option></select><span class="muted small">Atur tanggal mulai dan selesai periode langsung dari halaman ini.</span></div>
             <div class="field"><label for="period_start">Mulai berlaku *</label><input id="period_start" type="date" required></div>
             <div class="field"><label for="period_end">Selesai berlaku *</label><input id="period_end" type="date" required></div>
             <div class="field"><label for="day_name">Hari *</label><select id="day_name" required><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option><option>Sabtu</option></select></div>
@@ -57,13 +57,13 @@
   <script>
     let token=localStorage.getItem("admin_token")||"",rows=[],scheduleParticipantNims=[];
     const order=["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
-    const periodNames={gasal:"Gasal",antara_gasal:"Antara Gasal",genap:"Genap",antara_genap:"Antara Genap"};
+    const periodNames={gasal:"Gasal",genap:"Genap"};
     const esc=value=>String(value??"-").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
     const time=value=>value?value.slice(0,5):"-";
     if(!token){token=prompt("Masukkan password admin:")||"";if(token)localStorage.setItem("admin_token",token);}
     async function api(path,options={}){options.headers={...(options.headers||{}),"x-admin-token":token};const response=await fetch(path,options),result=await response.json();if(response.status===401){localStorage.removeItem("admin_token");throw new Error("Password admin salah. Muat ulang halaman.");}if(!response.ok||result.status!=="success")throw new Error(result.message||"Permintaan gagal");return result;}
     function showMessage(text,type){message.textContent=text;message.className=`status-message show ${type}`;}
-    function suggestedPeriod(type){const now=new Date(),firstYear=now.getMonth()>=6?now.getFullYear():now.getFullYear()-1,secondYear=firstYear+1;const values={gasal:[`${firstYear}-09-01`,`${firstYear}-10-31`],antara_gasal:[`${secondYear}-02-01`,`${secondYear}-03-31`],genap:[`${secondYear}-03-01`,`${secondYear}-05-31`],antara_genap:[`${secondYear}-08-01`,`${secondYear}-09-30`]};return{label:`${firstYear}/${secondYear} ${periodNames[type]}`,start:values[type][0],end:values[type][1]};}
+    function suggestedPeriod(type){const now=new Date(),firstYear=now.getMonth()>=6?now.getFullYear():now.getFullYear()-1,secondYear=firstYear+1;const values={gasal:[`${firstYear}-09-01`,`${firstYear}-10-31`],genap:[`${secondYear}-03-01`,`${secondYear}-05-31`]};return{label:`${firstYear}/${secondYear} ${periodNames[type]}`,start:values[type][0],end:values[type][1]};}
     function applySuggestedPeriod(){const value=suggestedPeriod(period_type.value);semester_label.value=value.label;period_start.value=value.start;period_end.value=value.end;}
     function updateScheduleNimSummary(){scheduleNimSummary.textContent=scheduleParticipantNims.length?`${scheduleParticipantNims.length} NIM mahasiswa siap disimpan.`:"Belum ada NIM. Maksimal 200 mahasiswa per kelas.";}
     function clearScheduleNims(){scheduleParticipantNims=[];schedule_participant_file.value="";updateScheduleNimSummary();}
