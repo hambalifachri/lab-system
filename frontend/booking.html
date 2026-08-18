@@ -14,7 +14,7 @@
     </header>
 
     <section class="card">
-      <div class="card-head"><div><h2>Form Pengajuan</h2><span class="muted small">Jadwal tetap khusus dosen dan baru aktif setelah disetujui admin.</span></div></div>
+      <div class="card-head"><div><h2>Form Pengajuan</h2><span class="muted small">Jadwal tetap khusus dosen dan otomatis aktif setelah validasi admin.</span></div></div>
       <form id="bookingForm" class="card-body">
         <div class="form-grid">
           <div class="field full"><label for="request_type">Jenis pengajuan *</label><select id="request_type" required><option value="single">Booking Sekali (tanggal tertentu)</option><option value="fixed_schedule">Jadwal Tetap Semester (berulang setiap minggu)</option></select></div>
@@ -36,7 +36,7 @@
           <div class="field full"><label for="participant_file">Daftar NIM peserta (CSV/TXT, opsional)</label><input id="participant_file" type="file" accept=".csv,.txt,text/csv,text/plain"><div id="nimSummary" class="muted small" style="margin-top:7px">Belum ada daftar NIM. Data ini hanya terlihat oleh admin.</div><button class="btn secondary small-btn" type="button" style="margin-top:9px" onclick="downloadTemplate()">Unduh Template CSV</button></div>
           <div class="field full"><label id="purposeLabel" for="purpose">Keperluan *</label><textarea id="purpose" maxlength="500" placeholder="Jelaskan tujuan penggunaan laboratorium" required></textarea></div>
         </div>
-        <div id="bookingNotice" class="notice section-space">Pengajuan yang tidak bentrok akan masuk ke admin. Simpan kode booking untuk memeriksa hasil persetujuan dan membaca peraturan lab.</div>
+        <div id="bookingNotice" class="notice section-space">Pengajuan yang tidak bentrok akan otomatis disetujui dan langsung masuk ke kalender lab. Jika ada konflik jadwal, sistem akan mengarahkan Anda ke WhatsApp admin agar proses lebih cepat dan jelas.</div>
         <section class="section-space">
           <h2>Peraturan Laboratorium</h2>
           <ol class="rules-list">

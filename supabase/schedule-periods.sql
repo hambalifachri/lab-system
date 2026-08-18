@@ -46,6 +46,8 @@ select
 from public.lab_schedules s
 join public.lab_rooms r on r.id = s.room_id
 where s.status = 'active'
-  and current_date between s.period_start and s.period_end;
+  and s.period_start is not null
+  and s.period_end is not null
+  and s.period_end >= s.period_start;
 
 revoke all on public.lab_schedule_view from anon, authenticated;
