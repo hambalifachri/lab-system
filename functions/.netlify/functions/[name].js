@@ -657,6 +657,16 @@ async function adminSchedules(context, supabase) {
     return json(200, { status: "success", message: `${archived.length} jadwal berhasil diaktifkan kembali` });
   }
 
+  if (action === "delete") {
+    const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(Number).filter(Number.isInteger))];
+    if (!ids.length || ids.length > 200) return json(400, { status: "error", message: "Pilih jadwal yang akan dihapus" });
+    const bookingResult = await supabase.from("lab_bookings").update({ status: "cancelled", admin_note: "Dibatalkan karena jadwal laboratorium dihapus admin" }).in("schedule_id", ids).eq("request_type", "fixed_schedule").eq("status", "approved");
+    if (bookingResult.error) throw bookingResult.error;
+    const { error } = await supabase.from("lab_schedules").delete().in("id", ids);
+    if (error) throw error;
+    return json(200, { status: "success", message: `${ids.length} jadwal berhasil dihapus` });
+  }
+
   if (action === "import") {
     const schedules = Array.isArray(body.schedules) ? body.schedules : [];
     if (!schedules.length || schedules.length > 200) {
