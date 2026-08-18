@@ -18,7 +18,8 @@ async function cleanupSchedules() {
   try {
     console.log('🔄 Starting archive of old schedules...\n');
 
-    // Archive all active schedules
+    // Archive only schedules whose period has ended; future schedules remain active.
+    const today = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase
       .from('lab_schedules')
       .update({
@@ -26,6 +27,7 @@ async function cleanupSchedules() {
         archived_at: new Date().toISOString()
       })
       .eq('status', 'active')
+      .lt('period_end', today)
       .select('id, day_name, subject, start_time, end_time, semester_label');
 
     if (error) {

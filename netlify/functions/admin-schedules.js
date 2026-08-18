@@ -71,6 +71,26 @@ exports.handler = async function(event) {
       return response(200, { status: "success", message: `${ids.length} jadwal berhasil diarsipkan` });
     }
 
+    if (action === "restore") {
+      const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(Number).filter(Number.isInteger))];
+      if (!ids.length || ids.length > 200) return response(400, { status: "error", message: "Pilih jadwal arsip yang akan diaktifkan" });
+      const archivedResult = await supabase.from("lab_schedules").select("id, room_id, day_name, start_time, end_time, subject, period_start, period_end").in("id", ids).eq("status", "archived");
+      if (archivedResult.error) throw archivedResult.error;
+      const archived = archivedResult.data || [];
+      if (!archived.length) return response(400, { status: "error", message: "Jadwal arsip tidak ditemukan" });
+      const activeResult = await supabase.from("lab_schedules").select("room_id, day_name, start_time, end_time, subject, period_start, period_end").in("room_id", [...new Set(archived.map(row => row.room_id))]).eq("status", "active");
+      if (activeResult.error) throw activeResult.error;
+      const candidates = [...(activeResult.data || [])];
+      for (const item of archived) {
+        const conflict = candidates.find(other => Number(other.room_id) === Number(item.room_id) && other.day_name === item.day_name && item.period_start <= other.period_end && item.period_end >= other.period_start && overlaps(item.start_time, item.end_time, other.start_time.slice(0, 5), other.end_time.slice(0, 5)));
+        if (conflict) return response(409, { status: "error", message: `Tidak dapat diaktifkan: bentrok dengan ${conflict.subject}` });
+        candidates.push(item);
+      }
+      const { error } = await supabase.from("lab_schedules").update({ status: "active", archived_at: null }).in("id", archived.map(row => row.id)).eq("status", "archived");
+      if (error) throw error;
+      return response(200, { status: "success", message: `${archived.length} jadwal berhasil diaktifkan kembali` });
+    }
+
     if (action === "import") {
       const schedules = Array.isArray(body.schedules) ? body.schedules : [];
       if (!schedules.length || schedules.length > 200) {
