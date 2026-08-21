@@ -6,7 +6,7 @@ const supabase = createClient(
 );
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
-const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
+const SESSION_MAX_MS = 4 * 60 * 60 * 1000;
 const FREE_ACCESS_MAX_MS = 12 * 60 * 60 * 1000;
 
 function response(statusCode, data) {
