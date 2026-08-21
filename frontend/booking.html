@@ -33,7 +33,7 @@
           <div class="field"><label for="class_name">Kelas/Prodi *</label><input id="class_name" maxlength="120" placeholder="Contoh: Teknik Sipil 4A" required></div>
           <div class="field"><label for="borrower_contact">Kontak aktif *</label><input id="borrower_contact" maxlength="120" placeholder="Nomor WhatsApp atau email" required></div>
           <div class="field"><label>Kapasitas laboratorium</label><div class="notice">Maksimal 25 mahasiswa.</div></div>
-          <div class="field full"><label for="participant_file">Daftar NIM peserta (CSV/TXT, opsional)</label><input id="participant_file" type="file" accept=".csv,.txt,text/csv,text/plain"><div id="nimSummary" class="muted small" style="margin-top:7px">Belum ada daftar NIM. Data ini hanya terlihat oleh admin.</div><button class="btn secondary small-btn" type="button" style="margin-top:9px" onclick="downloadTemplate()">Unduh Template CSV</button></div>
+          <div class="field full"><label for="participant_file">Daftar peserta (CSV/TXT, opsional)</label><input id="participant_file" type="file" accept=".csv,.txt,text/csv,text/plain"><div id="nimSummary" class="muted small" style="margin-top:7px">Gunakan kolom NIM dan nama agar mahasiswa otomatis dapat login. Data ini hanya terlihat oleh admin.</div><button class="btn secondary small-btn" type="button" style="margin-top:9px" onclick="downloadTemplate()">Unduh Template CSV</button></div>
           <div class="field full"><label id="purposeLabel" for="purpose">Keperluan *</label><textarea id="purpose" maxlength="500" placeholder="Jelaskan tujuan penggunaan laboratorium" required></textarea></div>
         </div>
         <div id="bookingNotice" class="notice section-space">Pengajuan yang tidak bentrok akan otomatis disetujui dan langsung masuk ke kalender lab. Jika ada konflik jadwal, sistem akan mengarahkan Anda ke WhatsApp admin agar proses lebih cepat dan jelas.</div>
@@ -65,6 +65,7 @@
     const submitButton = document.getElementById("submitButton");
     const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
     let participantNims = [];
+    let participantStudents = [];
     booking_date.min = today;
     const singleTimes = Array.from({ length: 33 }, (_, index) => {
       const minutes = 8 * 60 + index * 15;
@@ -79,7 +80,7 @@
       link.href = URL.createObjectURL(new Blob(["\ufeff" + text], { type: "text/csv;charset=utf-8" }));
       link.download = filename; link.click(); URL.revokeObjectURL(link.href);
     }
-    function downloadTemplate() { downloadText("template-nim-peserta.csv", "nim\n00000000000\n"); }
+    function downloadTemplate() { downloadText("template-peserta-lab.csv", "nim,nama\n00000000000,NAMA MAHASISWA\n"); }
 
     function suggestAcademicPeriod() {
       if (!booking_date.value) return;
@@ -147,17 +148,25 @@
     updateRequestType();
 
     participant_file.addEventListener("change", async () => {
-      participantNims = [];
+      participantNims = []; participantStudents = [];
       const file = participant_file.files[0];
-      if (!file) { nimSummary.textContent = "Belum ada daftar NIM. Data ini hanya terlihat oleh admin."; return; }
+      if (!file) { nimSummary.textContent = "Gunakan kolom NIM dan nama agar mahasiswa otomatis dapat login. Data ini hanya terlihat oleh admin."; return; }
       try {
-        const matches = (await file.text()).match(/\b\d{11}\b/g) || [];
-        participantNims = [...new Set(matches)];
-        if (!participantNims.length) throw new Error("Tidak ditemukan NIM 11 digit dalam file.");
-        if (participantNims.length > 25) throw new Error("Maksimal 25 NIM peserta.");
-        nimSummary.textContent = `${participantNims.length} NIM berhasil dibaca dan hanya dapat dilihat admin.`;
+        const lines = (await file.text()).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        const records = lines.slice(/\bnim\b/i.test(lines[0] || "") ? 1 : 0).map((line, index) => {
+          const cells = line.split(/[;,]/).map(cell => cell.trim());
+          const nim = (cells[0] || "").match(/^\d{11}$/)?.[0];
+          const nama = cells.slice(1).join(" ").trim();
+          if (!nim || !nama) throw new Error(`Baris ${index + 2}: isi NIM 11 digit dan nama mahasiswa.`);
+          return { nim, nama };
+        });
+        participantStudents = [...new Map(records.map(item => [item.nim, item])).values()];
+        participantNims = participantStudents.map(item => item.nim);
+        if (!participantNims.length) throw new Error("Tidak ditemukan data peserta dalam file.");
+        if (participantNims.length > 25) throw new Error("Maksimal 25 peserta.");
+        nimSummary.textContent = `${participantNims.length} peserta berhasil dibaca dan otomatis didaftarkan untuk login.`;
       } catch (error) {
-        participant_file.value = ""; participantNims = []; showMessage(error.message, "error");
+        participant_file.value = ""; participantNims = []; participantStudents = []; showMessage(error.message, "error");
       }
     });
 
@@ -184,7 +193,8 @@
         borrower_name: borrower_name.value.trim(), borrower_role: borrower_role.value, borrower_contact: borrower_contact.value.trim(),
         booking_category: booking_category.value, class_name: class_name.value.trim(), participant_count: 25,
         academic_year: academic_year.value.trim(), academic_period: academic_period.value,
-        participant_nims: participantNims, purpose: purpose.value.trim(), rules_accepted: accept_rules.checked
+        participant_nims: participantNims, participant_students: participantStudents,
+        purpose: purpose.value.trim(), rules_accepted: accept_rules.checked
       };
 
       submitButton.disabled = true; submitButton.textContent = "Mengirim...";

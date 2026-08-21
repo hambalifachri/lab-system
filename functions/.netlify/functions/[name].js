@@ -834,6 +834,10 @@ async function createBooking(context, supabase) {
   const participantNims = [...new Set(Array.isArray(body.participant_nims)
     ? body.participant_nims.map(item => clean(item, 11)).filter(Boolean)
     : [])];
+  const participantStudents = [...new Map((Array.isArray(body.participant_students) ? body.participant_students : [])
+    .map(item => ({ nim: clean(item?.nim, 11), nama: clean(item?.nama, 120) }))
+    .filter(item => item.nim || item.nama)
+    .map(item => [item.nim, item])).values()];
 
   if (!["single", "fixed_schedule"].includes(requestType)) {
     return json(400, { status: "error", message: "Jenis pengajuan tidak valid" });
@@ -874,6 +878,9 @@ async function createBooking(context, supabase) {
   }
   if (participantNims.some(nim => !/^\d{11}$/.test(nim)) || participantNims.length > participantCount) {
     return json(400, { status: "error", message: "Daftar NIM tidak valid atau melebihi jumlah peserta" });
+  }
+  if (participantStudents.some(student => !/^\d{11}$/.test(student.nim) || !student.nama || !participantNims.includes(student.nim))) {
+    return json(400, { status: "error", message: "Data NIM atau nama peserta tidak valid" });
   }
   const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) ||
@@ -953,6 +960,14 @@ async function createBooking(context, supabase) {
       message: "Jam tersebut sudah diajukan atau sudah dipinjam. Silakan hubungi admin melalui WhatsApp untuk pengecekan lanjutan.",
       wa_admin_link: getAdminWhatsappLink()
     });
+  }
+
+  if (participantStudents.length) {
+    const { error: studentError } = await supabase.from("students").upsert(
+      participantStudents.map(student => ({ ...student, aktif: true })),
+      { onConflict: "nim" }
+    );
+    if (studentError) throw studentError;
   }
 
   const bookingCode = createBookingCode(bookingDate);
