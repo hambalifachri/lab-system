@@ -162,10 +162,13 @@ exports.handler = async function(event) {
       });
     }
 
-    if (startTime < "08:00" || endTime > "16:00" || startTime >= endTime) {
+    if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime) || startTime >= endTime ||
+        (requestType === 'single' && (startTime < "08:00" || endTime > "16:00"))) {
       return response(400, {
         status: "error",
-        message: "Jam peminjaman harus di antara 08:00 - 16:00"
+        message: requestType === 'single'
+          ? "Booking sekali hanya tersedia pukul 08:00 - 16:00"
+          : "Jam selesai harus setelah jam mulai"
       });
     }
 

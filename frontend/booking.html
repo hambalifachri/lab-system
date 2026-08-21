@@ -23,8 +23,8 @@
           <div id="fixedDayField" class="field" hidden><label for="day_name">Hari setiap minggu *</label><select id="day_name"><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option></select></div>
           <div class="field"><label for="academic_year">Tahun akademik *</label><input id="academic_year" maxlength="9" placeholder="Contoh: 2026/2027" required></div>
           <div class="field"><label for="academic_period">Periode semester *</label><select id="academic_period" required><option value="gasal">Semester Gasal</option><option value="genap">Semester Genap</option><option value="di_luar_periode">Di luar periode</option></select><span class="muted small">Tanggal periode jadwal tetap dapat disesuaikan admin dari halaman Jadwal Semester.</span></div>
-          <div class="field"><label for="start_time">Jam mulai *</label><select id="start_time" required><option value="">Pilih jam mulai</option><option>07:00</option><option>07:30</option><option>09:30</option><option>10:15</option><option>12:00</option><option>12:22</option><option>13:15</option><option>14:00</option><option>14:29</option><option>14:30</option><option>15:25</option><option>16:00</option><option>16:15</option><option>17:00</option><option>18:30</option><option>19:00</option><option>19:30</option><option>21:31</option><option>21:45</option><option>22:00</option></select></div>
-          <div class="field"><label for="end_time">Jam selesai *</label><select id="end_time" required><option value="">Pilih jam selesai</option><option>09:10</option><option>09:29</option><option>10:00</option><option>10:20</option><option>11:05</option><option>11:10</option><option>11:30</option><option>11:45</option><option>11:55</option><option>11:59</option><option>12:45</option><option>12:50</option><option>13:40</option><option>14:05</option><option>14:29</option><option>14:44</option><option>14:45</option><option>14:50</option><option>14:55</option><option>15:20</option><option>15:25</option><option>15:40</option><option>15:45</option><option>16:10</option><option>16:30</option><option>16:50</option><option>16:59</option><option>17:40</option><option>17:50</option><option>18:00</option><option>18:15</option><option>18:30</option><option>18:40</option><option>18:45</option><option>18:59</option><option>19:00</option><option>19:29</option><option>20:20</option><option>20:40</option><option>21:00</option><option>21:10</option><option>21:30</option><option>22:00</option><option>23:00</option><option>23:01</option><option>23:15</option><option>23:30</option><option>23:40</option><option>00:00</option></select></div>
+          <div class="field"><label for="start_time">Jam mulai *</label><select id="start_time" required></select></div>
+          <div class="field"><label for="end_time">Jam selesai *</label><select id="end_time" required></select></div>
           <div id="semesterLabelField" class="field" hidden><label for="semester_label">Nama semester *</label><input id="semester_label" maxlength="80" placeholder="Contoh: 2026/2027 Semester Gasal"></div>
           <div id="periodPreviewField" class="field" hidden><label>Periode berlaku</label><div id="periodPreview" class="notice">Mengikuti periode semester.</div></div>
           <div class="field"><label for="borrower_name">Nama penanggung jawab *</label><input id="borrower_name" maxlength="120" autocomplete="name" required></div>
@@ -66,6 +66,12 @@
     const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
     let participantNims = [];
     booking_date.min = today;
+    const singleTimes = Array.from({ length: 33 }, (_, index) => {
+      const minutes = 8 * 60 + index * 15;
+      return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+    });
+    const fixedStartTimes = ["07:00","07:30","09:30","10:15","12:00","12:22","13:15","14:00","14:29","14:30","15:25","16:00","16:15","17:00","18:30","19:00","19:30","21:31","21:45","22:00"];
+    const fixedEndTimes = ["09:10","09:29","10:00","10:20","11:05","11:10","11:30","11:45","11:55","11:59","12:45","12:50","13:40","14:05","14:29","14:44","14:45","14:50","14:55","15:20","15:25","15:40","15:45","16:10","16:30","16:50","16:59","17:40","17:50","18:00","18:15","18:30","18:40","18:45","18:59","19:00","19:29","20:20","20:40","21:00","21:10","21:30","22:00","23:00","23:01","23:15","23:30","23:40","00:00"];
 
     function showMessage(text, type) { message.textContent = text; message.className = `status-message show ${type}`; }
     function downloadText(filename, text) {
@@ -101,6 +107,18 @@
       periodPreview.textContent = ranges[academic_period.value];
     }
 
+    function setTimeOptions(element, times, placeholder) {
+      const selected = element.value;
+      element.innerHTML = `<option value="">${placeholder}</option>` + times.map(time => `<option value="${time}">${time}</option>`).join("");
+      element.value = times.includes(selected) ? selected : "";
+    }
+
+    function updateTimeOptions() {
+      const fixed = request_type.value === "fixed_schedule";
+      setTimeOptions(start_time, fixed ? fixedStartTimes : singleTimes, "Pilih jam mulai");
+      setTimeOptions(end_time, fixed ? fixedEndTimes : singleTimes, "Pilih jam selesai");
+    }
+
     function updateRequestType() {
       const fixed = request_type.value === "fixed_schedule";
       singleDateField.hidden = fixed;
@@ -119,6 +137,7 @@
       bookingNotice.textContent = fixed
         ? "Jadwal akan berulang setiap minggu pada periode semester yang dipilih. Jika tidak bentrok, pengajuan otomatis disetujui dan langsung aktif di kalender lab."
         : "Pengajuan otomatis disetujui bila tidak bentrok. Jika ada bentrok, sistem akan mengarahkan ke WhatsApp admin agar dapat dibahas lebih lanjut.";
+      updateTimeOptions();
       syncSemesterLabel();
     }
     request_type.addEventListener("change", updateRequestType);

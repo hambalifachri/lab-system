@@ -881,8 +881,14 @@ async function createBooking(context, supabase) {
       (requestType === "fixed_schedule" && periodEnd < today)) {
     return json(400, { status: "error", message: "Tanggal peminjaman tidak boleh di masa lalu" });
   }
-  if (startTime < "08:00" || endTime > "16:00" || startTime >= endTime) {
-    return json(400, { status: "error", message: "Jam peminjaman harus di antara 08:00 - 16:00" });
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime) || startTime >= endTime ||
+      (requestType === "single" && (startTime < "08:00" || endTime > "16:00"))) {
+    return json(400, {
+      status: "error",
+      message: requestType === "single"
+        ? "Booking sekali hanya tersedia pukul 08:00 - 16:00"
+        : "Jam selesai harus setelah jam mulai"
+    });
   }
 
   const dayName = requestType === "fixed_schedule" ? requestedDay : getIndonesianDay(bookingDate);
