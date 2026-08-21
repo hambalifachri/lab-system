@@ -127,7 +127,7 @@ exports.handler = async function(event) {
     return response(200, {
       status: "success",
       message: enabled
-        ? `${target} bebas digunakan tanpa NIM selama maksimal 2 jam`
+        ? `${target} bebas digunakan tanpa NIM selama maksimal 12 jam`
         : `Login NIM diwajibkan kembali di ${target}`
     });
   } catch {

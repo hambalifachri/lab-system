@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
+const FREE_ACCESS_MAX_MS = 12 * 60 * 60 * 1000;
 const SCHEDULE_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 const SCHEDULE_PERIOD_TYPES = ["gasal", "genap"];
 const LAB_RULES = [
@@ -277,7 +278,8 @@ async function sessionStatus(context, supabase) {
   if (error) throw error;
 
   const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
-  const expired = session && Date.now() - sessionStartedAt(session) >= SESSION_MAX_MS;
+  const sessionMaxMs = isFreeAccessSession(session) ? FREE_ACCESS_MAX_MS : SESSION_MAX_MS;
+  const expired = session && Date.now() - sessionStartedAt(session) >= sessionMaxMs;
   const inactive = session && !isFreeAccessSession(session) &&
     (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS);
   if (expired || inactive) {
@@ -308,7 +310,8 @@ async function computerHeartbeat(context, supabase) {
   if (error) throw error;
 
   const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
-  const expired = session && Date.now() - sessionStartedAt(session) >= SESSION_MAX_MS;
+  const sessionMaxMs = isFreeAccessSession(session) ? FREE_ACCESS_MAX_MS : SESSION_MAX_MS;
+  const expired = session && Date.now() - sessionStartedAt(session) >= sessionMaxMs;
   const inactive = session && !isFreeAccessSession(session) &&
     (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS);
   if (expired || inactive) {
@@ -482,7 +485,7 @@ async function adminSession(context, supabase) {
   return json(200, {
     status: "success",
     message: enabled
-      ? `${target} bebas digunakan tanpa NIM selama maksimal 2 jam`
+      ? `${target} bebas digunakan tanpa NIM selama maksimal 12 jam`
       : `Login NIM diwajibkan kembali di ${target}`
   });
 }

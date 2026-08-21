@@ -176,7 +176,7 @@
       <button class="require-login" onclick="setFreeAccess('SIPIL', false)">Wajib Login C.413</button>
       <button class="free-access" onclick="setFreeAccess('ARSITEK', true)">Bebaskan C.405</button>
       <button class="require-login" onclick="setFreeAccess('ARSITEK', false)">Wajib Login C.405</button>
-      <button class="free-access" onclick="setFreeAccess('ALL', true)">Bebaskan Semua 2 Jam</button>
+      <button class="free-access" onclick="setFreeAccess('ALL', true)">Bebaskan Semua 12 Jam</button>
       <button class="require-login" onclick="setFreeAccess('ALL', false)">Wajibkan Semua Login</button>
       <button class="logout-admin" onclick="logoutAdmin()">Keluar Admin</button>
     </div>
@@ -317,7 +317,7 @@
             <td>${formatDate(row.login_at)}</td>
             <td>${formatAgo(row.seconds_ago)}</td>
             <td>${/^(SIPIL|ARSITEK)-(0[1-9]|1[0-9]|2[0-5])$/.test(row.computer_name || "") ? `
-              <button class="free-access" onclick="setFreeAccess('${row.computer_name}', true)">Bebas 2 Jam</button>
+              <button class="free-access" onclick="setFreeAccess('${row.computer_name}', true)">Bebas 12 Jam</button>
               <button class="require-login" onclick="setFreeAccess('${row.computer_name}', false)">Wajib Login</button>
             ` : "-"}</td>
           </tr>
@@ -333,7 +333,7 @@
     }
 
     function setFreeAccess(deviceId, enabled) {
-      const action = enabled ? "bebaskan tanpa NIM selama 2 jam" : "wajibkan login NIM kembali";
+      const action = enabled ? "bebaskan tanpa NIM selama 12 jam" : "wajibkan login NIM kembali";
       const labels = { ALL: "Semua PC", SIPIL: "Lab C.413", ARSITEK: "Lab C.405" };
       if (!confirm(`${labels[deviceId] || deviceId}: ${action}?`)) return;
 

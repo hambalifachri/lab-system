@@ -7,6 +7,7 @@ const supabase = createClient(
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_MS = 2 * 60 * 60 * 1000;
+const FREE_ACCESS_MAX_MS = 12 * 60 * 60 * 1000;
 
 function response(statusCode, data) {
   return {
@@ -55,7 +56,8 @@ exports.handler = async function(event) {
     if (error) throw error;
 
     const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
-    if (session && Date.now() - sessionStartedAt(session) >= SESSION_MAX_MS) {
+    const sessionMaxMs = isFreeAccessSession(session) ? FREE_ACCESS_MAX_MS : SESSION_MAX_MS;
+    if (session && Date.now() - sessionStartedAt(session) >= sessionMaxMs) {
       await supabase.from('active_sessions').delete().eq('device_id', deviceId);
       return response(200, { status: "success", logged_in: false });
     }
