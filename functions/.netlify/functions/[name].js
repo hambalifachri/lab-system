@@ -923,7 +923,10 @@ async function createBooking(context, supabase) {
     ? scheduleQuery.lte("period_start", periodEnd).gte("period_end", periodStart)
     : scheduleQuery.lte("period_start", bookingDate).gte("period_end", bookingDate);
   const { data: schedules, error: scheduleError } = await scheduleQuery;
-  if (scheduleError) throw scheduleError;
+  if (scheduleError) {
+    console.error("booking schedule query failed", scheduleError);
+    return json(500, { status: "error", message: "Pengecekan jadwal lab gagal. Silakan coba kembali." });
+  }
   const scheduleConflict = (schedules || []).some(item =>
     isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
   );
@@ -949,7 +952,10 @@ async function createBooking(context, supabase) {
   ];
   const bookingResults = await Promise.all(bookingQueries);
   const bookingError = bookingResults.find(result => result.error)?.error;
-  if (bookingError) throw bookingError;
+  if (bookingError) {
+    console.error("booking conflict query failed", bookingError);
+    return json(500, { status: "error", message: "Pengecekan ketersediaan jadwal gagal. Silakan coba kembali." });
+  }
   const bookings = bookingResults.flatMap(result => result.data || []);
   const bookingConflict = bookings.some(item =>
     isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
@@ -1000,7 +1006,10 @@ async function createBooking(context, supabase) {
     rules_accepted_at: new Date().toISOString(),
     status: "approved"
   }).select("id").single();
-  if (error) throw error;
+  if (error) {
+    console.error("booking insert failed", error);
+    return json(500, { status: "error", message: "Pengajuan tidak dapat disimpan. Pastikan jadwal belum bentrok lalu coba kembali." });
+  }
 
   if (requestType === "fixed_schedule") {
     const { data: scheduleInsert, error: scheduleError } = await supabase.from("lab_schedules").insert({

@@ -216,7 +216,10 @@ exports.handler = async function(event) {
       : scheduleQuery.lte('period_start', bookingDate).gte('period_end', bookingDate);
     const { data: schedules, error: scheduleError } = await scheduleQuery;
 
-    if (scheduleError) throw scheduleError;
+    if (scheduleError) {
+      console.error("booking schedule query failed", scheduleError);
+      return response(500, { status: "error", message: "Pengecekan jadwal lab gagal. Silakan coba kembali." });
+    }
 
     const scheduleConflict = (schedules || []).some(item =>
       isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
@@ -250,7 +253,10 @@ exports.handler = async function(event) {
     }
     const bookingResults = await Promise.all(bookingQueries);
     const bookingError = bookingResults.find(result => result.error)?.error;
-    if (bookingError) throw bookingError;
+    if (bookingError) {
+      console.error("booking conflict query failed", bookingError);
+      return response(500, { status: "error", message: "Pengecekan ketersediaan jadwal gagal. Silakan coba kembali." });
+    }
     const bookings = bookingResults.flatMap(result => result.data || []);
     const bookingConflict = bookings.some(item =>
       isOverlap(startTime, endTime, item.start_time.slice(0, 5), item.end_time.slice(0, 5))
@@ -311,9 +317,10 @@ exports.handler = async function(event) {
       .single();
 
     if (error) {
+      console.error("booking insert failed", error);
       return response(500, {
         status: "error",
-        message: "Gagal menyimpan peminjaman"
+        message: "Pengajuan tidak dapat disimpan. Pastikan jadwal belum bentrok lalu coba kembali."
       });
     }
 
