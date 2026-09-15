@@ -889,11 +889,11 @@ async function createBooking(context, supabase) {
     return json(400, { status: "error", message: "Tanggal peminjaman tidak boleh di masa lalu" });
   }
   if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime) || startTime >= endTime ||
-      (requestType === "single" && (startTime < "08:00" || endTime > "16:00"))) {
+      (requestType === "single" && (startTime < "07:00" || endTime > "16:00"))) {
     return json(400, {
       status: "error",
       message: requestType === "single"
-        ? "Booking sekali hanya tersedia pukul 08:00 - 16:00"
+        ? "Booking sekali hanya tersedia pukul 07:00 - 16:00"
         : "Jam selesai harus setelah jam mulai"
     });
   }

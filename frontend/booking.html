@@ -67,8 +67,8 @@
     let participantNims = [];
     let participantStudents = [];
     booking_date.min = today;
-    const singleTimes = Array.from({ length: 33 }, (_, index) => {
-      const minutes = 8 * 60 + index * 15;
+    const singleTimes = Array.from({ length: 37 }, (_, index) => {
+      const minutes = 7 * 60 + index * 15;
       return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
     });
     const fixedStartTimes = ["07:00","07:30","09:30","10:15","12:00","12:22","13:15","14:00","14:29","14:30","15:25","16:00","16:15","17:00","18:30","19:00","19:30","21:31","21:45","22:00"];
