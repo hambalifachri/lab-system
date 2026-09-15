@@ -320,7 +320,7 @@ exports.handler = async function(event) {
       console.error("booking insert failed", error);
       return response(500, {
         status: "error",
-        message: "Pengajuan tidak dapat disimpan. Pastikan jadwal belum bentrok lalu coba kembali."
+        message: `Pengajuan tidak dapat disimpan (kode diagnosis: ${error.code || "DB-UNKNOWN"}).`
       });
     }
 
