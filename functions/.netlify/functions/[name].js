@@ -1008,7 +1008,7 @@ async function createBooking(context, supabase) {
   }).select("id").single();
   if (error) {
     console.error("booking insert failed", error);
-    return json(500, { status: "error", message: `Pengajuan tidak dapat disimpan (kode diagnosis: ${error.code || "DB-UNKNOWN"}).` });
+    return json(500, { status: "error", message: `Pengajuan tidak dapat disimpan (diagnosis: ${error.constraint || error.code || "DB-UNKNOWN"}).` });
   }
 
   if (requestType === "fixed_schedule") {
