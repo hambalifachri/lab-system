@@ -33,7 +33,7 @@
           <div class="field"><label for="class_name">Kelas/Prodi *</label><input id="class_name" maxlength="120" placeholder="Contoh: Teknik Sipil 4A" required></div>
           <div class="field"><label for="borrower_contact">Kontak aktif *</label><input id="borrower_contact" maxlength="120" placeholder="Nomor WhatsApp atau email" required></div>
           <div class="field"><label>Kapasitas laboratorium</label><div class="notice">Maksimal 25 mahasiswa.</div></div>
-          <div class="field full"><label for="participant_file">Daftar peserta (CSV/TXT, opsional)</label><input id="participant_file" type="file" accept=".csv,.txt,text/csv,text/plain"><div id="nimSummary" class="muted small" style="margin-top:7px">Gunakan kolom NIM dan nama agar mahasiswa otomatis dapat login. Data ini hanya terlihat oleh admin.</div><button class="btn secondary small-btn" type="button" style="margin-top:9px" onclick="downloadTemplate()">Unduh Template CSV</button></div>
+          <div class="field full"><label for="participant_file">Daftar peserta (CSV/TXT) *</label><input id="participant_file" type="file" accept=".csv,.txt,text/csv,text/plain" required><div id="nimSummary" class="muted small" style="margin-top:7px">Gunakan kolom NIM dan nama. Jumlah peserta pada bukti booking dihitung dari file ini.</div><button class="btn secondary small-btn" type="button" style="margin-top:9px" onclick="downloadTemplate()">Unduh Template CSV</button></div>
           <div class="field full"><label id="purposeLabel" for="purpose">Keperluan *</label><textarea id="purpose" maxlength="500" placeholder="Jelaskan tujuan penggunaan laboratorium" required></textarea></div>
         </div>
         <div id="bookingNotice" class="notice section-space">Pengajuan yang tidak bentrok akan otomatis disetujui dan langsung masuk ke kalender lab. Jika ada konflik jadwal, sistem akan mengarahkan Anda ke WhatsApp admin agar proses lebih cepat dan jelas.</div>
@@ -150,7 +150,7 @@
     participant_file.addEventListener("change", async () => {
       participantNims = []; participantStudents = [];
       const file = participant_file.files[0];
-      if (!file) { nimSummary.textContent = "Gunakan kolom NIM dan nama agar mahasiswa otomatis dapat login. Data ini hanya terlihat oleh admin."; return; }
+      if (!file) { nimSummary.textContent = "Gunakan kolom NIM dan nama. Jumlah peserta pada bukti booking dihitung dari file ini."; return; }
       try {
         const lines = (await file.text()).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
         const records = lines.slice(/\bnim\b/i.test(lines[0] || "") ? 1 : 0).map((line, index) => {
@@ -182,6 +182,7 @@
     form.addEventListener("submit", async event => {
       event.preventDefault(); message.className = "status-message";
       if (start_time.value >= end_time.value) return showMessage("Jam selesai harus setelah jam mulai.", "error");
+      if (!participantStudents.length) return showMessage("Unggah daftar peserta CSV berisi NIM dan nama terlebih dahulu.", "error");
       const fixed = request_type.value === "fixed_schedule";
       if (!fixed && new Date(booking_date.value + "T00:00:00").getDay() === 0) return showMessage("Lab tidak dapat dibooking pada hari Minggu.", "error");
       if (fixed && academic_period.value === "di_luar_periode") return showMessage("Jadwal tetap harus memakai periode semester.", "error");
@@ -191,7 +192,7 @@
         day_name: fixed ? day_name.value : "",
         semester_label: fixed ? semester_label.value.trim() : "", start_time: start_time.value, end_time: end_time.value,
         borrower_name: borrower_name.value.trim(), borrower_role: borrower_role.value, borrower_contact: borrower_contact.value.trim(),
-        booking_category: booking_category.value, class_name: class_name.value.trim(), participant_count: 25,
+        booking_category: booking_category.value, class_name: class_name.value.trim(), participant_count: participantStudents.length,
         academic_year: academic_year.value.trim(), academic_period: academic_period.value,
         participant_nims: participantNims, participant_students: participantStudents,
         purpose: purpose.value.trim(), rules_accepted: accept_rules.checked

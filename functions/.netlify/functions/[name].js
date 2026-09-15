@@ -876,8 +876,8 @@ async function createBooking(context, supabase) {
   if (!className || !Number.isInteger(participantCount) || participantCount < 1 || participantCount > 25) {
     return json(400, { status: "error", message: "Kelas/prodi dan jumlah peserta 1-25 wajib diisi" });
   }
-  if (participantNims.some(nim => !/^\d{11}$/.test(nim)) || participantNims.length > participantCount) {
-    return json(400, { status: "error", message: "Daftar NIM tidak valid atau melebihi jumlah peserta" });
+  if (participantNims.some(nim => !/^\d{11}$/.test(nim)) || participantNims.length !== participantCount) {
+    return json(400, { status: "error", message: "Daftar peserta wajib diunggah dan jumlahnya harus sesuai CSV" });
   }
   if (participantStudents.some(student => !/^\d{11}$/.test(student.nim) || !student.nama || !participantNims.includes(student.nim))) {
     return json(400, { status: "error", message: "Data NIM atau nama peserta tidak valid" });
