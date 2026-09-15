@@ -967,7 +967,12 @@ async function createBooking(context, supabase) {
       participantStudents.map(student => ({ ...student, aktif: true })),
       { onConflict: "nim" }
     );
-    if (studentError) throw studentError;
+    if (studentError) {
+      return json(400, {
+        status: "error",
+        message: "Data peserta tidak dapat didaftarkan untuk login. Periksa NIM dan nama pada file CSV."
+      });
+    }
   }
 
   const bookingCode = createBookingCode(bookingDate);
@@ -1316,6 +1321,7 @@ export async function onRequest(context) {
     if (validationMessage.startsWith("Baris ")) {
       return json(400, { status: "error", message: validationMessage });
     }
-    return json(500, { status: "error", message: "Terjadi kesalahan pada server" });
+    console.error("Lab System function failed", context.params.name, error);
+    return json(500, { status: "error", message: "Layanan sedang mengalami kendala. Silakan coba kembali beberapa saat lagi." });
   }
 }

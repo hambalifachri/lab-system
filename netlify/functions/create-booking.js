@@ -269,7 +269,12 @@ exports.handler = async function(event) {
         participantStudents.map(student => ({ ...student, aktif: true })),
         { onConflict: 'nim' }
       );
-      if (studentError) throw studentError;
+      if (studentError) {
+        return response(400, {
+          status: "error",
+          message: "Data peserta tidak dapat didaftarkan untuk login. Periksa NIM dan nama pada file CSV."
+        });
+      }
     }
 
     // ================= SIMPAN BOOKING =================
@@ -359,9 +364,10 @@ exports.handler = async function(event) {
     });
 
   } catch (error) {
+    console.error("create-booking failed", error);
     return response(500, {
       status: "error",
-      message: "Gagal membuat peminjaman"
+      message: "Pengajuan belum dapat diproses. Periksa tanggal, jam, dan ruangan yang dipilih lalu coba kembali."
     });
   }
 };
