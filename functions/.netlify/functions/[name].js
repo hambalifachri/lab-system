@@ -270,25 +270,39 @@ async function sessionStatus(context, supabase) {
     return json(400, { status: "error", message: "PC tidak terdaftar" });
   }
 
-  const { data: session, error } = await supabase
-    .from("active_sessions")
-    .select("nim, last_seen, status")
-    .eq("device_id", deviceId)
-    .maybeSingle();
-  if (error) throw error;
+  try {
+    const { data: session, error } = await supabase
+      .from("active_sessions")
+      .select("nim, last_seen, status")
+      .eq("device_id", deviceId)
+      .maybeSingle();
+    if (error) throw error;
 
-  const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
-  const sessionMaxMs = isFreeAccessSession(session) ? FREE_ACCESS_MAX_MS : SESSION_MAX_MS;
-  const expired = session && Date.now() - sessionStartedAt(session) >= sessionMaxMs;
-  const inactive = session && !isFreeAccessSession(session) &&
-    (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS);
-  if (expired || inactive) {
-    await supabase.from("active_sessions").delete().eq("device_id", deviceId);
+    const lastSeen = session?.last_seen ? new Date(session.last_seen).getTime() : 0;
+    const sessionMaxMs = isFreeAccessSession(session) ? FREE_ACCESS_MAX_MS : SESSION_MAX_MS;
+    const expired = session && Date.now() - sessionStartedAt(session) >= sessionMaxMs;
+    const inactive = session && !isFreeAccessSession(session) &&
+      (!lastSeen || Date.now() - lastSeen >= SESSION_TIMEOUT_MS);
+    if (expired || inactive) {
+      await supabase.from("active_sessions").delete().eq("device_id", deviceId);
+    }
+    return json(200, {
+      status: "success",
+      logged_in: Boolean(session && !expired && !inactive)
+    });
+  } catch (error) {
+    // Emergency fail-open: keep lab PCs usable while Supabase is unavailable.
+    // Normal session enforcement resumes automatically on the next successful query.
+    console.error("session-status emergency access", {
+      deviceId,
+      message: error?.message || String(error)
+    });
+    return json(200, {
+      status: "success",
+      logged_in: true,
+      emergency_access: true
+    });
   }
-  return json(200, {
-    status: "success",
-    logged_in: Boolean(session && !expired && !inactive)
-  });
 }
 
 async function computerHeartbeat(context, supabase) {

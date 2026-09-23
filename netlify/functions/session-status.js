@@ -66,6 +66,16 @@ exports.handler = async function(event) {
 
     return response(200, { status: "success", logged_in: loggedIn });
   } catch (error) {
-    return response(500, { status: "error", message: "Gagal memeriksa sesi" });
+    // Emergency fail-open: keep lab PCs usable while Supabase is unavailable.
+    // Normal session enforcement resumes automatically on the next successful query.
+    console.error("session-status emergency access", {
+      deviceId,
+      message: error?.message || String(error)
+    });
+    return response(200, {
+      status: "success",
+      logged_in: true,
+      emergency_access: true
+    });
   }
 };
