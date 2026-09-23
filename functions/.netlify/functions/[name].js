@@ -64,6 +64,19 @@ function sessionStartedAt(session) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function emergencyAccessState(deviceId, now = Date.now()) {
+  const cycleSeconds = 30;
+  const resetSeconds = 8;
+  const deviceOffset = [...deviceId].reduce((total, char) => total + char.charCodeAt(0), 0);
+  const phase = (Math.floor(now / 1000) + deviceOffset) % cycleSeconds;
+  const startupReset = phase < resetSeconds;
+
+  return {
+    loggedIn: !startupReset,
+    startupReset
+  };
+}
+
 async function readBody(request) {
   try {
     return await request.json();
@@ -292,15 +305,18 @@ async function sessionStatus(context, supabase) {
     });
   } catch (error) {
     // Emergency fail-open: keep lab PCs usable while Supabase is unavailable.
+    // A short false pulse clears the startup freshness gate in the installed AHK client.
     // Normal session enforcement resumes automatically on the next successful query.
     console.error("session-status emergency access", {
       deviceId,
       message: error?.message || String(error)
     });
+    const emergency = emergencyAccessState(deviceId);
     return json(200, {
       status: "success",
-      logged_in: true,
-      emergency_access: true
+      logged_in: emergency.loggedIn,
+      emergency_access: true,
+      startup_reset: emergency.startupReset
     });
   }
 }
