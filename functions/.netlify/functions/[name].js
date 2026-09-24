@@ -400,10 +400,12 @@ async function adminStatus(context, supabase) {
     supabase.from("lab_computers").select("computer_name,device_id,last_seen,status"),
     supabase.from("active_sessions").select("nim,student_name,computer_name,device_id,login_at,last_seen,status")
   ]);
-  if (computersResult.error) throw computersResult.error;
-  if (sessionsResult.error) throw sessionsResult.error;
-  const computers = new Map((computersResult.data || []).map(row => [row.device_id || row.computer_name, row]));
-  const sessions = new Map((sessionsResult.data || []).map(row => [row.device_id || row.computer_name, row]));
+  // Tetap tampilkan dashboard saat salah satu tabel status sedang kosong atau
+  // belum sepenuhnya dipulihkan dari database sebelumnya.
+  const computers = new Map((computersResult.error ? [] : computersResult.data || [])
+    .map(row => [row.device_id || row.computer_name, row]));
+  const sessions = new Map((sessionsResult.error ? [] : sessionsResult.data || [])
+    .map(row => [row.device_id || row.computer_name, row]));
   const deviceNames = ["SIPIL", "ARSITEK"].flatMap(prefix =>
     Array.from({ length: 25 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, "0")}`)
   );

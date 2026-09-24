@@ -50,12 +50,13 @@ exports.handler = async function(event) {
       supabase.from('active_sessions').select('nim,student_name,computer_name,device_id,login_at,last_seen,status')
     ]);
 
-    if (computersResult.error || sessionsResult.error) {
-      return response(500, { status: "error", message: "Gagal mengambil data dashboard" });
-    }
-
-    const computers = new Map((computersResult.data || []).map(row => [row.device_id || row.computer_name, row]));
-    const sessions = new Map((sessionsResult.data || []).map(row => [row.device_id || row.computer_name, row]));
+    // Dashboard tetap perlu dapat dibuka pada database yang baru dipulihkan.
+    // Jika salah satu sumber status belum tersedia, tampilkan PC sebagai offline
+    // dan gunakan sumber lain yang masih berhasil dibaca.
+    const computers = new Map((computersResult.error ? [] : computersResult.data || [])
+      .map(row => [row.device_id || row.computer_name, row]));
+    const sessions = new Map((sessionsResult.error ? [] : sessionsResult.data || [])
+      .map(row => [row.device_id || row.computer_name, row]));
     const deviceNames = ['SIPIL', 'ARSITEK'].flatMap(prefix =>
       Array.from({ length: 25 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, '0')}`)
     );
