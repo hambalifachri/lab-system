@@ -398,7 +398,7 @@ async function adminStatus(context, supabase) {
   }
   const [computersResult, sessionsResult] = await Promise.all([
     supabase.from("lab_computers").select("computer_name,device_id,last_seen,status"),
-    supabase.from("active_sessions").select("nim,student_name,computer_name,device_id,login_at,last_seen,status")
+    supabase.from("active_sessions").select("nim,student_name,computer_name,device_id,last_seen,status")
   ]);
   // Tetap tampilkan dashboard saat salah satu tabel status sedang kosong atau
   // belum sepenuhnya dipulihkan dari database sebelumnya.
@@ -420,7 +420,8 @@ async function adminStatus(context, supabase) {
       status: session ? "dipakai" : (secondsAgo !== null && secondsAgo <= 300 ? "kosong" : "offline"),
       nim: session?.nim || null,
       nama: session?.student_name || null,
-      login_at: session?.login_at || null,
+      // Kolom login_at tidak selalu tersedia pada data sesi hasil migrasi.
+      login_at: session?.status?.startsWith("active:") ? session.status.slice(7) : (session?.last_seen || null),
       seconds_ago: secondsAgo,
       room: roomForComputer(computerName)
     };

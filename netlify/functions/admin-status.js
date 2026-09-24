@@ -47,7 +47,7 @@ exports.handler = async function(event) {
   try {
     const [computersResult, sessionsResult] = await Promise.all([
       supabase.from('lab_computers').select('computer_name,device_id,last_seen,status'),
-      supabase.from('active_sessions').select('nim,student_name,computer_name,device_id,login_at,last_seen,status')
+      supabase.from('active_sessions').select('nim,student_name,computer_name,device_id,last_seen,status')
     ]);
 
     // Dashboard tetap perlu dapat dibuka pada database yang baru dipulihkan.
@@ -71,7 +71,9 @@ exports.handler = async function(event) {
         status: session ? 'dipakai' : (secondsAgo !== null && secondsAgo <= 300 ? 'kosong' : 'offline'),
         nim: session?.nim || null,
         nama: session?.student_name || null,
-        login_at: session?.login_at || null,
+        // Database lama tidak selalu memiliki kolom login_at. Awal sesi
+        // tersimpan pada status active:<ISO>, lalu last_seen sebagai cadangan.
+        login_at: session?.status?.startsWith('active:') ? session.status.slice(7) : (session?.last_seen || null),
         seconds_ago: secondsAgo,
         room: roomForComputer(computerName)
       };
