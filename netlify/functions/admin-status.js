@@ -45,24 +45,40 @@ exports.handler = async function(event) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('lab_dashboard')
-      .select('*')
-      .order('computer_name', { ascending: true });
+    const [computersResult, sessionsResult] = await Promise.all([
+      supabase.from('lab_computers').select('computer_name,device_id,last_seen,status'),
+      supabase.from('active_sessions').select('nim,student_name,computer_name,device_id,login_at,last_seen,status')
+    ]);
 
-    if (error) {
-      return response(500, {
-        status: "error",
-        message: "Gagal mengambil data dashboard"
-      });
+    if (computersResult.error || sessionsResult.error) {
+      return response(500, { status: "error", message: "Gagal mengambil data dashboard" });
     }
+
+    const computers = new Map((computersResult.data || []).map(row => [row.device_id || row.computer_name, row]));
+    const sessions = new Map((sessionsResult.data || []).map(row => [row.device_id || row.computer_name, row]));
+    const deviceNames = ['SIPIL', 'ARSITEK'].flatMap(prefix =>
+      Array.from({ length: 25 }, (_, index) => `${prefix}-${String(index + 1).padStart(2, '0')}`)
+    );
+    const now = Date.now();
+    const data = deviceNames.map(computerName => {
+      const computer = computers.get(computerName);
+      const session = sessions.get(computerName);
+      const lastSeen = session?.last_seen || computer?.last_seen || null;
+      const secondsAgo = lastSeen ? Math.max(0, Math.floor((now - new Date(lastSeen).getTime()) / 1000)) : null;
+      return {
+        computer_name: computerName,
+        status: session ? 'dipakai' : (secondsAgo !== null && secondsAgo <= 300 ? 'kosong' : 'offline'),
+        nim: session?.nim || null,
+        nama: session?.student_name || null,
+        login_at: session?.login_at || null,
+        seconds_ago: secondsAgo,
+        room: roomForComputer(computerName)
+      };
+    });
 
     return response(200, {
       status: "success",
-      data: (data || []).map(row => ({
-        ...row,
-        room: roomForComputer(row.computer_name)
-      }))
+      data
     });
 
   } catch (error) {
