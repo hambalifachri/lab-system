@@ -1341,6 +1341,30 @@ async function getScheduleDebug(context, supabase) {
   }
 }
 
+async function softwareCatalog(context, supabase) {
+  if (method(context.request, "GET")) {
+    const { data, error } = await supabase.from("lab_software")
+      .select("id,software_name,version,license_type,license_status,expires_on,notes,room_id,lab_rooms(room_name)")
+      .order("software_name");
+    return json(200, error ? { status: "success", data: [], setup_required: true } : { status: "success", data: data || [] });
+  }
+  if (!method(context.request, "POST")) return json(405, { status: "error", message: "Method tidak diizinkan" });
+  if (!isAdmin(context)) return json(401, { status: "error", message: "Akses admin ditolak" });
+  const body = await readBody(context.request);
+  if (body.action === "delete") {
+    const { error } = await supabase.from("lab_software").delete().eq("id", Number(body.id));
+    if (error) throw error;
+    return json(200, { status: "success", message: "Software dihapus" });
+  }
+  const item = body.item || {};
+  if (!String(item.software_name || "").trim() || !String(item.license_type || "").trim()) return json(400, { status: "error", message: "Nama software dan lisensi wajib diisi" });
+  const row = { software_name: String(item.software_name).trim(), version: String(item.version || "").trim() || null, license_type: String(item.license_type).trim(), license_status: item.license_status === "expires" ? "expires" : "lifetime", expires_on: item.license_status === "expires" ? item.expires_on : null, room_id: item.room_id ? Number(item.room_id) : null, notes: String(item.notes || "").trim() || null, updated_at: new Date().toISOString() };
+  if (row.license_status === "expires" && !row.expires_on) return json(400, { status: "error", message: "Tanggal kedaluwarsa wajib diisi" });
+  const result = item.id ? await supabase.from("lab_software").update(row).eq("id", Number(item.id)) : await supabase.from("lab_software").insert(row);
+  if (result.error) throw result.error;
+  return json(200, { status: "success", message: item.id ? "Software diperbarui" : "Software ditambahkan" });
+}
+
 const handlers = {
   "login": login,
   "logout": logout,
@@ -1357,7 +1381,8 @@ const handlers = {
   "get-rooms": getRooms,
   "create-booking": createBooking,
   "booking-status": bookingStatus,
-  "update-booking-status": updateBookingStatus
+  "update-booking-status": updateBookingStatus,
+  "software-catalog": softwareCatalog
 };
 
 export async function onRequest(context) {
