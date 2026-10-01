@@ -125,7 +125,9 @@ async function fixedPeriod(supabase, academicYear, periodType) {
     genap: [`${endYear}-03-01`, `${endYear}-05-31`, "Semester Genap"],
   };
   const { data } = await supabase.from("lab_period_settings").select("start_month,start_day,end_month,end_day").eq("period_type", periodType).maybeSingle();
-  const range = data ? [`${periodType === "gasal" ? startYear : endYear}-${String(data.start_month).padStart(2,"0")}-${String(data.start_day).padStart(2,"0")}`, `${periodType === "gasal" ? startYear : endYear}-${String(data.end_month).padStart(2,"0")}-${String(data.end_day).padStart(2,"0")}`, defaults[periodType]?.[2]] : defaults[periodType];
+    const startsIn = periodType === "gasal" ? startYear : endYear;
+    const endsIn = periodType === "gasal" && data && Number(data.end_month) < Number(data.start_month) ? endYear : startsIn;
+    const range = data ? [`${startsIn}-${String(data.start_month).padStart(2,"0")}-${String(data.start_day).padStart(2,"0")}`, `${endsIn}-${String(data.end_month).padStart(2,"0")}-${String(data.end_day).padStart(2,"0")}`, defaults[periodType]?.[2]] : defaults[periodType];
   return range ? { start: range[0], end: range[1], label: `${academicYear} ${range[2]}` } : null;
 }
 
