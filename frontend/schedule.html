@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Jadwal Laboratorium</title>
   <link rel="stylesheet" href="/lab.css">
+  <link rel="stylesheet" href="/schedule-print.css">
 </head>
 <body>
   <main class="page">
@@ -17,7 +18,8 @@
         <a class="btn" href="/booking.html">Ajukan Booking</a>
         <a class="btn secondary" href="/booking-status.html">Cek Status</a>
         <button class="btn secondary" type="button" onclick="exportSchedule()">Export CSV</button>
-        <button class="btn secondary" type="button" onclick="window.print()">Cetak / PDF</button>
+        <button class="btn secondary" type="button" data-print-room="C.413" disabled>Cetak / PDF C.413</button>
+        <button class="btn secondary" type="button" data-print-room="C.405" disabled>Cetak / PDF C.405</button>
         <a class="btn secondary" href="/admin-booking.html">Admin</a>
       </nav>
     </header>
@@ -44,6 +46,7 @@
       </div>
     </section>
 
+    <p id="printMessage" class="muted small" role="status">Cetak mengikuti filter tahun, semester, dan hari yang dipilih.</p>
     <section class="stats">
       <div class="stat"><span class="muted small">Jadwal tetap</span><strong id="scheduleCount">—</strong></div>
       <div class="stat"><span class="muted small">Booking disetujui</span><strong id="bookingCount">—</strong></div>
@@ -65,12 +68,44 @@
     </section>
   </main>
 
+  <div class="schedule-print-toolbar">
+    <button class="btn" type="button" onclick="window.print()">Cetak / Simpan PDF</button>
+    <button class="btn secondary" type="button" onclick="LabSchedulePrint.close()">Kembali ke Jadwal</button>
+    <p>A4 landscape • Skala 100% • Nonaktifkan header/footer browser. Pilih “Simpan sebagai PDF” untuk mengunduh.</p>
+  </div>
+  <div id="schedulePrintRoot" class="schedule-print-root" aria-label="Pratinjau cetak jadwal"></div>
+  <script src="/schedule-print.js"></script>
   <script>
     const days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
     const todayIndex = new Date().getDay();
     let selectedDay = "Semua hari";
     let schedules = [], bookings = [];
     let activeFilters = { academic_year: '', academic_period: '' };
+    let scheduleReady = false, loadSequence = 0, automaticPrint = false;
+    function showSchedulePrint(room) {
+      if (!scheduleReady) return;
+      try {
+        LabSchedulePrint.render({room, schedules, bookings, filters:activeFilters, day:selectedDay});
+      } catch (error) {
+        LabSchedulePrint.close();
+        document.getElementById('printMessage').textContent = error.message;
+      }
+    }
+    document.querySelectorAll('[data-print-room]').forEach(button => {
+      button.addEventListener('click', () => showSchedulePrint(button.dataset.printRoom));
+    });
+    window.addEventListener('beforeprint', () => {
+      if (document.body.classList.contains('schedule-preview') || !scheduleReady) return;
+      automaticPrint = true;
+      showSchedulePrint('C.413');
+      const root = document.getElementById('schedulePrintRoot');
+      const firstRoom = [...root.children];
+      showSchedulePrint('C.405');
+      root.prepend(...firstRoom);
+    });
+    window.addEventListener('afterprint', () => {
+      if (automaticPrint) { LabSchedulePrint.close(); automaticPrint = false; }
+    });
     const esc = value => String(value ?? "-").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
     const time = value => value ? value.slice(0, 5) : "-";
     const date = value => value ? new Date(value + "T00:00:00").toLocaleDateString("id-ID", { day:"2-digit", month:"short", year:"numeric" }) : "-";
@@ -114,6 +149,9 @@
     }
 
     function loadSchedules() {
+      const sequence = ++loadSequence;
+      scheduleReady = false;
+      document.querySelectorAll('[data-print-room]').forEach(button => button.disabled = true);
       const params = new URLSearchParams();
       if (activeFilters.academic_year) params.append('academic_year', activeFilters.academic_year);
       if (activeFilters.academic_period) params.append('academic_period', activeFilters.academic_period);
@@ -122,16 +160,20 @@
       fetch(url, { cache: "no-store" })
         .then(async response => ({ ok: response.ok, body: await response.json() }))
         .then(({ ok, body }) => {
+          if (sequence !== loadSequence) return;
           if (!ok || body.status !== "success") throw new Error(body.message);
           schedules = body.schedules || [];
           bookings = body.bookings || [];
           scheduleCount.textContent = schedules.length;
           bookingCount.textContent = bookings.length;
           roomCount.textContent = new Set([...schedules, ...bookings].map(item => item.room_name)).size || "0";
-          selectedDay = "Semua hari";
+          scheduleReady = true;
+          document.querySelectorAll('[data-print-room]').forEach(button => button.disabled = false);
           render();
         })
         .catch(() => {
+          if (sequence !== loadSequence) return;
+          schedules = []; bookings = [];
           scheduleBox.innerHTML = bookingBox.innerHTML = `<div class="empty">Data belum dapat dimuat. Silakan coba lagi.</div>`;
           renderTabs();
         });

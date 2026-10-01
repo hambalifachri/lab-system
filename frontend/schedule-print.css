@@ -1,0 +1,42 @@
+.schedule-print-root, .schedule-print-toolbar { display: none; }
+body.schedule-preview { background: #e2e8f0; }
+body.schedule-preview > .page { display: none; }
+body.schedule-preview .schedule-print-root { display: block; overflow: auto; padding: 24px; }
+body.schedule-preview .schedule-print-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 24px; background: #102643; color: white; }
+.schedule-print-toolbar p { margin: 0; flex: 1; font-size: 13px; }
+.schedule-sheet { box-sizing: border-box; width: 277mm; height: 190mm; margin: 0 auto 24px; background: white; color: #132a49; font: 10pt/1.25 Arial, sans-serif; display: flex; flex-direction: column; padding: 0; color-scheme: light; }
+.schedule-sheet * { box-sizing: border-box; }
+.schedule-sheet-body { flex: 1; min-height: 0; }
+.schedule-letterhead { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #254e7c; padding-bottom: 2mm; }
+.schedule-university { font: bold 17pt/1.15 Georgia, serif; }
+.schedule-faculty { font: 12pt/1.2 Georgia, serif; margin-top: 1mm; }
+.schedule-lab { text-align: right; font-size: 9pt; }
+.schedule-lab strong { display: block; font-size: 21pt; }
+.schedule-sheet h1 { font: bold 15pt/1.2 Georgia, serif; margin: 2mm 0 1mm; }
+.schedule-subtitle { font-weight: bold; font-size: 11pt; }
+.schedule-meta { display: flex; justify-content: space-between; gap: 6mm; margin: 2mm 0 2mm; font-size: 9pt; }
+.schedule-meta span { overflow-wrap: anywhere; }
+.schedule-sheet table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.schedule-sheet th { background: #e5edf5; color: #132a49; font-size: 9pt; letter-spacing: 0; padding: 2mm; border-bottom: 1px solid #bacbde; text-transform: uppercase; }
+.schedule-sheet td { font-size: 10pt; line-height: 1.2; padding: 1mm 2mm; border-bottom: 1px solid #d9e3ee; vertical-align: top; color: #132a49; overflow-wrap: anywhere; }
+.schedule-sheet tbody tr:nth-child(even) { background: #eff4f9; }
+.schedule-sheet tr.day-start td { border-top: 2px solid #254e7c; }
+.schedule-sheet tr:last-child td { border-bottom: 1px solid #d9e3ee; }
+.schedule-sheet .print-time { white-space: nowrap; }
+.schedule-sheet .print-detail { display: block; font-size: 8pt; color: #42566c; margin-top: 1mm; }
+.schedule-section-title { margin: 2mm 0 1mm; font-weight: bold; font-size: 10pt; }
+.schedule-signatures { display: flex; justify-content: space-between; gap: 20mm; margin-top: 3mm; break-inside: avoid; }
+.schedule-signatures > div { width: 80mm; }
+.schedule-signatures strong { display: block; padding-top: 14mm; }
+.schedule-sheet-footer { display: flex; justify-content: space-between; border-top: 1px solid #254e7c; padding-top: 2mm; margin-top: 3mm; font-size: 8pt; flex-shrink: 0; }
+.schedule-empty-print { padding: 8mm 0; }
+@page { size: A4 landscape; margin: 10mm; }
+@media print {
+  body { background: white !important; margin: 0 !important; }
+  body > .page, .schedule-print-toolbar { display: none !important; }
+  .schedule-print-root, body.schedule-preview .schedule-print-root { display: block; padding: 0; overflow: visible; }
+  .schedule-sheet { margin: 0; break-after: page; page-break-after: always; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .schedule-sheet:last-child { break-after: auto; page-break-after: auto; }
+  .schedule-sheet tr, .schedule-signatures { break-inside: avoid; page-break-inside: avoid; }
+  .schedule-sheet thead { display: table-header-group; }
+}

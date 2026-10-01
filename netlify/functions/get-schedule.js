@@ -50,7 +50,7 @@ exports.handler = async function(event) {
       .eq('request_type', 'single');
 
     if (academicYear) {
-      bookingQuery = bookingQuery.ilike('semester_label', `%${academicYear}%`);
+      bookingQuery = bookingQuery.eq('academic_year', academicYear);
     }
     if (academicPeriod) {
       bookingQuery = bookingQuery.eq('academic_period', academicPeriod);
