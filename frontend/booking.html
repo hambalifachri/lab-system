@@ -26,7 +26,8 @@
           <div class="field"><label for="start_time">Jam mulai *</label><select id="start_time" required></select></div>
           <div class="field"><label for="end_time">Jam selesai *</label><select id="end_time" required></select></div>
           <div id="semesterLabelField" class="field" hidden><label for="semester_label">Nama semester *</label><input id="semester_label" maxlength="80" placeholder="Contoh: 2026/2027 Semester Gasal"></div>
-          <div id="periodPreviewField" class="field" hidden><label>Periode berlaku</label><div id="periodPreview" class="notice">Mengikuti periode semester.</div></div>
+          <div id="periodStartField" class="field" hidden><label for="period_start">Periode mulai *</label><input id="period_start" type="date"></div>
+          <div id="periodEndField" class="field" hidden><label for="period_end">Periode selesai *</label><input id="period_end" type="date"></div>
           <div class="field"><label for="borrower_name">Nama penanggung jawab *</label><input id="borrower_name" maxlength="120" autocomplete="name" required></div>
           <div class="field"><label for="borrower_role">Peran *</label><select id="borrower_role" required><option value="Dosen">Dosen</option><option value="Staff">Staf</option></select></div>
           <div class="field"><label for="booking_category">Jenis kegiatan *</label><select id="booking_category" required><option value="perkuliahan">Perkuliahan/praktikum</option><option value="ujian">Ujian</option><option value="pelatihan">Pelatihan/workshop</option><option value="lainnya">Kegiatan lainnya</option></select></div>
@@ -99,13 +100,11 @@
         semester_label.value = `${academic_year.value} ${periodNames[academic_period.value]}`;
       }
       const years = academic_year.value.match(/^(\d{4})\/(\d{4})$/);
-      if (!years || !periodNames[academic_period.value]) { periodPreview.textContent = "Isi tahun akademik dan periode semester."; return; }
+      if (!years || !periodNames[academic_period.value]) return;
       const startYear = years[1], endYear = years[2];
-      const ranges = {
-        gasal:`1 September ${startYear} - 31 Oktober ${startYear}`,
-        genap:`1 Maret ${endYear} - 31 Mei ${endYear}`
-      };
-      periodPreview.textContent = ranges[academic_period.value];
+      const defaults = academic_period.value === "gasal" ? [`${startYear}-09-01`, `${startYear}-10-31`] : [`${endYear}-03-01`, `${endYear}-05-31`];
+      if (!period_start.value) period_start.value = defaults[0];
+      if (!period_end.value) period_end.value = defaults[1];
     }
 
     function setTimeOptions(element, times, placeholder) {
@@ -125,10 +124,13 @@
       singleDateField.hidden = fixed;
       fixedDayField.hidden = !fixed;
       semesterLabelField.hidden = !fixed;
-      periodPreviewField.hidden = !fixed;
+      periodStartField.hidden = !fixed;
+      periodEndField.hidden = !fixed;
       booking_date.required = !fixed;
       day_name.required = fixed;
       semester_label.required = fixed;
+      period_start.required = fixed;
+      period_end.required = fixed;
       purpose.required = !fixed;
       purposeLabel.textContent = fixed ? "Keperluan (opsional)" : "Keperluan *";
       borrower_role.value = fixed ? "Dosen" : borrower_role.value;
@@ -190,7 +192,7 @@
       const payload = {
         request_type: request_type.value, room_id: Number(room_id.value), booking_date: booking_date.value,
         day_name: fixed ? day_name.value : "",
-        semester_label: fixed ? semester_label.value.trim() : "", start_time: start_time.value, end_time: end_time.value,
+        semester_label: fixed ? semester_label.value.trim() : "", period_start: fixed ? period_start.value : "", period_end: fixed ? period_end.value : "", start_time: start_time.value, end_time: end_time.value,
         borrower_name: borrower_name.value.trim(), borrower_role: borrower_role.value, borrower_contact: borrower_contact.value.trim(),
         booking_category: booking_category.value, class_name: class_name.value.trim(), participant_count: participantStudents.length,
         academic_year: academic_year.value.trim(), academic_period: academic_period.value,

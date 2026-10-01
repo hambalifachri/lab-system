@@ -139,11 +139,11 @@ exports.handler = async function(event) {
     }
 
     if (requestType === 'fixed_schedule') {
-      const period = await fixedPeriod(supabase, academicYear, academicPeriod);
-      if (!period) return response(400, { status: "error", message: "Periode semester tidak valid" });
-      periodStart = period.start;
-      periodEnd = period.end;
-      semesterLabel = period.label;
+      const customPeriod = /^\d{4}-\d{2}-\d{2}$/.test(periodStart) && /^\d{4}-\d{2}-\d{2}$/.test(periodEnd) && periodStart <= periodEnd;
+      const period = customPeriod ? null : await fixedPeriod(supabase, academicYear, academicPeriod);
+      if (!customPeriod && !period) return response(400, { status: "error", message: "Periode semester tidak valid" });
+      if (period) { periodStart = period.start; periodEnd = period.end; }
+      semesterLabel = semesterLabel || `${academicYear} ${academicPeriod === 'gasal' ? 'Semester Gasal' : 'Semester Genap'}`;
       bookingDate = periodStart;
       if (!purpose) purpose = `Jadwal tetap ${className}`;
     }
