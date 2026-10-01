@@ -1367,6 +1367,13 @@ async function softwareCatalog(context, supabase) {
   return json(200, { status: "success", message: item.id ? "Software diperbarui" : "Software ditambahkan" });
 }
 
+async function periodSettings(context, supabase) {
+  if (!method(context.request, "GET")) return json(405, { status: "error", message: "Method tidak diizinkan" });
+  const { data, error } = await supabase.from("lab_period_settings").select("period_type,start_month,start_day,end_month,end_day");
+  if (error) throw error;
+  return json(200, { status: "success", data: data || [] });
+}
+
 const handlers = {
   "login": login,
   "logout": logout,
@@ -1385,6 +1392,7 @@ const handlers = {
   "booking-status": bookingStatus,
   "update-booking-status": updateBookingStatus,
   "software-catalog": softwareCatalog
+  ,"period-settings": periodSettings
 };
 
 export async function onRequest(context) {

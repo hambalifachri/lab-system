@@ -66,6 +66,7 @@
     const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
     let participantNims = [];
     let participantStudents = [];
+    let periodSettings = {};
     booking_date.min = today;
     const singleTimes = Array.from({ length: 37 }, (_, index) => {
       const minutes = 7 * 60 + index * 15;
@@ -101,11 +102,14 @@
       const years = academic_year.value.match(/^(\d{4})\/(\d{4})$/);
       if (!years || !periodNames[academic_period.value]) { periodPreview.textContent = "Isi tahun akademik dan periode semester."; return; }
       const startYear = years[1], endYear = years[2];
-      const ranges = {
-        gasal:`1 September ${startYear} - 31 Oktober ${startYear}`,
-        genap:`1 Maret ${endYear} - 31 Mei ${endYear}`
-      };
-      periodPreview.textContent = ranges[academic_period.value];
+      const setting = periodSettings[academic_period.value];
+      const startMonth = setting?.start_month || (academic_period.value === "gasal" ? 9 : 3);
+      const startDay = setting?.start_day || 1;
+      const endMonth = setting?.end_month || (academic_period.value === "gasal" ? 10 : 5);
+      const endDay = setting?.end_day || (academic_period.value === "gasal" ? 31 : 31);
+      const endFor = academic_period.value === "gasal" && endMonth < startMonth ? endYear : (academic_period.value === "gasal" ? startYear : endYear);
+      const f = (d,m,y) => new Date(y,m-1,d).toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"});
+      periodPreview.textContent = `${f(startDay,startMonth,startYear)} - ${f(endDay,endMonth,endFor)}`;
     }
 
     function setTimeOptions(element, times, placeholder) {
@@ -178,6 +182,7 @@
           `<option value="${Number(room.id)}">${String(room.room_name).replace(/[&<>"]/g, "")}</option>`).join("");
       })
       .catch(() => { room_id.innerHTML = `<option value="1">Lab C.413</option><option value="2">Lab C.405</option>`; });
+    fetch("/.netlify/functions/period-settings").then(r=>r.json()).then(r=>{(r.data||[]).forEach(x=>periodSettings[x.period_type]=x);syncSemesterLabel();}).catch(()=>{});
 
     form.addEventListener("submit", async event => {
       event.preventDefault(); message.className = "status-message";
