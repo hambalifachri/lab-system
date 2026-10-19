@@ -68,7 +68,7 @@
         const accepted = Boolean(row.rules_accepted_at);
         acceptBox.hidden = accepted; acceptButton.hidden = accepted;
         acceptedNotice.className = accepted ? "status-message show success" : "status-message success";
-        acceptedNotice.textContent = accepted ? `Peraturan telah disetujui pada ${new Date(row.rules_accepted_at).toLocaleString("id-ID")}.` : "";
+        acceptedNotice.textContent = accepted ? `Peraturan telah disetujui pada ${new Date(row.rules_accepted_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", hour12: false })} WIB.` : "";
         resultCard.hidden = false;
       } catch (error) { showMessage(error.message, "error"); }
     }
