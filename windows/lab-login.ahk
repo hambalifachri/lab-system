@@ -12,7 +12,9 @@ global LabBaseUrl := GetPreferredHost()
 if HasCliArgument("--validate")
     ExitApp
 
-global LoginCheckIntervalMs := 2000
+global LoginCheckIntervalMs := 30000 ; Menunggu login: maksimal sekitar 120 cek/jam/PC.
+global ErrorCheckIntervalMs := 120000 ; Gangguan server: tunggu 2 menit sebelum mencoba lagi.
+global LogoutInProgress := false
 global ActiveCheckIntervalMs := 600000 ; 10 menit, hemat request Netlify saat kelas berlangsung.
 global BrowserPath := FindBrowser()
 global KioskBrowserPid := 0
@@ -164,7 +166,7 @@ CreateLogoutButton() {
     ; Tidak mengambil fokus Windows saat diklik, sehingga taskbar tidak muncul.
     LogoutGui := Gui("+AlwaysOnTop +ToolWindow -MinimizeBox -MaximizeBox +E0x08000000", "Login Lab")
     LogoutGui.SetFont("s10 Bold", "Segoe UI")
-    logoutButton := LogoutGui.AddButton("w132 h42", "Logout")
+    logoutButton := LogoutGui.AddButton("w190 h42", "Logout && Matikan PC")
     logoutButton.OnEvent("Click", (*) => ForceLogout())
     ; Tombol dapat digeser memakai judul jendela, tetapi tidak dapat ditutup.
     LogoutGui.OnEvent("Close", KeepLogoutButton)
@@ -181,7 +183,7 @@ KeepLogoutButton(*) {
 
 ShowLogoutButton() {
     global LogoutGui
-    LogoutGui.Show("x" (A_ScreenWidth - 165) " y20 NoActivate")
+    LogoutGui.Show("x" (A_ScreenWidth - 225) " y20 NoActivate")
 }
 
 HideLogoutButton() {
@@ -239,6 +241,18 @@ IsLoginBrowserOpen() {
 }
 
 CheckLoginStatus() {
+    global LogoutInProgress
+    static checking := false
+    if checking || LogoutInProgress
+        return
+    checking := true
+    try CheckLoginStatusCore()
+    finally
+        checking := false
+}
+
+CheckLoginStatusCore() {
+    global ErrorCheckIntervalMs
     global LabBaseUrl, PcName, IsLabLoggedIn, LoginCheckIntervalMs, ActiveCheckIntervalMs, KioskBrowserPid, RequireFreshLogin
     wasLoggedIn := IsLabLoggedIn
     tempFile := A_Temp "\lab-login-status-" PcName ".json"
@@ -289,11 +303,16 @@ CheckLoginStatus() {
         RequireFreshLogin := false
         IsLabLoggedIn := false
     } catch {
+        SetTimer CheckLoginStatus, ErrorCheckIntervalMs
         ; Jangan mengunci kembali PC yang sudah login hanya karena internet
         ; atau server mengalami gangguan sesaat.
         if wasLoggedIn
             return
         IsLabLoggedIn := false
+        SetLoginScreen(true)
+        if !IsLoginBrowserOpen()
+            OpenLogin()
+        return
     }
 
     SetLoginScreen(true)
@@ -381,8 +400,18 @@ KeepSessionAlive() {
 }
 
 ForceLogout() {
+    global LogoutInProgress
+    if LogoutInProgress
+        return
+    LogoutInProgress := true
+    try ForceLogoutAndShutdown()
+    finally
+        LogoutInProgress := false
+}
+
+ForceLogoutAndShutdown() {
     global LabBaseUrl, PcName, IsLabLoggedIn, LoginCheckIntervalMs
-    if (MsgBox("Akhiri sesi aktif di " PcName " dan tampilkan login lagi?", "Logout Lab", "YesNo Icon?") != "Yes")
+    if (MsgBox("Simpan semua pekerjaan terlebih dahulu.`n`nAkhiri sesi lab dan MATIKAN komputer " PcName "?`nKomputer hanya dimatikan setelah server mengonfirmasi logout.", "Logout & Matikan PC", "YesNo Icon? Default2") != "Yes")
         return
 
     quote := Chr(34)
@@ -398,16 +427,20 @@ ForceLogout() {
     FileAppend payload, payloadFile, "UTF-8-RAW"
     logoutUrl := RTrim(LabBaseUrl, "/") "/.netlify/functions/logout"
     curlPath := A_WinDir "\System32\curl.exe"
-    command := quote curlPath quote " -sS -X POST -H " quote "Content-Type: application/json" quote
+    command := quote curlPath quote " -sS --connect-timeout 8 --max-time 20 -X POST -H " quote "Content-Type: application/json" quote
         . " --data-binary " quote "@" payloadFile quote " -o " quote tempFile quote " " quote logoutUrl quote
     try {
-        RunWait command, , "Hide"
+        exitCode := RunWait(command, , "Hide")
+        if exitCode != 0 {
+            MsgBox "Koneksi logout gagal. Komputer tidak dimatikan. Silakan coba kembali.", "Logout Lab", 16
+            return
+        }
         if !FileExist(tempFile) {
             MsgBox "Logout gagal. Server tidak memberikan respons.", "Logout Lab", 16
             return
         }
         result := FileRead(tempFile)
-        if !InStr(result, Chr(34) "status" Chr(34) ":" Chr(34) "success" Chr(34)) {
+        if !RegExMatch(Trim(result), '^\{\s*"status"\s*:\s*"success"\s*[,}]') {
             MsgBox "Server menolak logout: " result, "Logout Lab", 16
             return
         }
@@ -415,6 +448,11 @@ ForceLogout() {
         SetLoginScreen(true)
         SetTimer CheckLoginStatus, LoginCheckIntervalMs
         OpenLogin()
+        ; /t 0 tanpa /f: jangan paksa menutup aplikasi dengan pekerjaan belum disimpan.
+        ; Jika shutdown dibatalkan/diblokir Windows, layar login tetap aktif.
+        shutdownCode := RunWait(quote A_WinDir "\System32\shutdown.exe" quote " /s /t 0", , "Hide")
+        if shutdownCode != 0
+            MsgBox "Logout berhasil, tetapi Windows tidak dapat mematikan komputer. Hubungi laboran.", "Logout Lab", 48
     } catch as err {
         MsgBox "Logout gagal: " err.Message, "Logout Lab", 16
     }

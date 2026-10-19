@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-title Instalasi Login Lab Arsitek
+title Instalasi dan Update Login Lab
 
 fltmc >nul 2>&1
 if errorlevel 1 (
@@ -22,8 +22,11 @@ if not exist "%~dp0hosting.ini" (
 
 set "TARGET=C:\LabLogin"
 if not exist "%TARGET%" mkdir "%TARGET%"
+if exist "%TARGET%\lab-login.ahk" copy /Y "%TARGET%\lab-login.ahk" "%TARGET%\lab-login.before-update.ahk" >nul
 copy /Y "%~dp0lab-login.ahk" "%TARGET%\lab-login.ahk" >nul
-copy /Y "%~dp0hosting.ini" "%TARGET%\hosting.ini" >nul
+if errorlevel 1 exit /b 1
+rem Pertahankan pilihan hosting PC yang sudah dipasang.
+if not exist "%TARGET%\hosting.ini" copy /Y "%~dp0hosting.ini" "%TARGET%\hosting.ini" >nul
 
 set "AHK_EXE="
 if exist "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" set "AHK_EXE=C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
