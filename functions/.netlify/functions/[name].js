@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import semesterAccess from "../../../netlify/functions/lib/semester-access.cjs";
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_MS = 12 * 60 * 60 * 1000;
@@ -158,6 +159,13 @@ async function login(context, supabase) {
   }
   if (!student.aktif) {
     return json(403, { status: "error", message: "Akun mahasiswa tidak aktif" });
+  }
+
+  if (!await semesterAccess.hasCurrentEnrollment(supabase, nim)) {
+    return json(403, {
+      status: "error",
+      message: "NIM belum terdaftar pada periode semester yang sedang berlaku atau booking hari ini. Hubungi laboran untuk memperbarui daftar peserta."
+    });
   }
 
   const { data: activeNim } = await supabase

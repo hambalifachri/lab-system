@@ -1,5 +1,6 @@
 // ================= IMPORT LIBRARY =================
 const { createClient } = require('@supabase/supabase-js');
+const { hasCurrentEnrollment } = require('./lib/semester-access.cjs');
 
 // ================= SETUP SUPABASE =================
 const supabase = createClient(
@@ -71,6 +72,13 @@ exports.handler = async function(event) {
       return response(403, {
         status: "error",
         message: "Akun mahasiswa tidak aktif"
+      });
+    }
+
+    if (!await hasCurrentEnrollment(supabase, nim)) {
+      return response(403, {
+        status: "error",
+        message: "NIM belum terdaftar pada periode semester yang sedang berlaku atau booking hari ini. Hubungi laboran untuk memperbarui daftar peserta."
       });
     }
 
