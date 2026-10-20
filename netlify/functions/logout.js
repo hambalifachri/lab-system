@@ -1,5 +1,6 @@
 // ================= IMPORT LIBRARY =================
 const { createClient } = require('@supabase/supabase-js');
+const { isOperator } = require('./lib/operator-access.cjs');
 
 // ================= SETUP SUPABASE =================
 const supabase = createClient(
@@ -78,7 +79,7 @@ exports.handler = async function(event) {
     }
 
     // ================= SIMPAN LOG LOGOUT =================
-    await supabase
+    if (!isOperator(nim)) await supabase
       .from('login_logs')
       .insert({
         nim,

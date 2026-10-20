@@ -42,7 +42,7 @@ async function setDevicesMode(devices, enabled) {
   if (deleteResult.error) throw deleteResult.error;
 
   if (!enabled) {
-    const logoutLogs = (previousResult.data || []).map(previous => ({
+    const logoutLogs = (previousResult.data || []).filter(previous => !require('./lib/operator-access.cjs').isOperator(previous.nim)).map(previous => ({
         nim: previous.nim,
         nama: previous.student_name || "Akses Tanpa NIM",
         aksi: "logout-admin",

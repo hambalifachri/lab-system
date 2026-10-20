@@ -1,6 +1,7 @@
 // ================= IMPORT LIBRARY =================
 const { createClient } = require('@supabase/supabase-js');
 const { hasCurrentEnrollment } = require('./lib/semester-access.cjs');
+const { isOperator, lookupStudent } = require('./lib/operator-access.cjs');
 
 // ================= SETUP SUPABASE =================
 const supabase = createClient(
@@ -55,11 +56,7 @@ exports.handler = async function(event) {
     }
 
     // ================= CEK MAHASISWA =================
-    const { data: student, error: studentError } = await supabase
-      .from('students')
-      .select('nim, nama, aktif')
-      .eq('nim', nim)
-      .single();
+    const { data: student, error: studentError } = await lookupStudent(supabase, nim);
 
     if (studentError || !student) {
       return response(404, {
@@ -75,7 +72,7 @@ exports.handler = async function(event) {
       });
     }
 
-    if (!await hasCurrentEnrollment(supabase, nim)) {
+    if (!isOperator(nim) && !await hasCurrentEnrollment(supabase, nim)) {
       return response(403, {
         status: "error",
         message: "NIM belum terdaftar pada periode semester yang sedang berlaku atau booking hari ini. Hubungi laboran untuk memperbarui daftar peserta."
@@ -142,7 +139,7 @@ exports.handler = async function(event) {
       });
 
     // ================= SIMPAN LOG LOGIN =================
-    await supabase
+    if (!isOperator(nim)) await supabase
       .from('login_logs')
       .insert({
         nim: student.nim,

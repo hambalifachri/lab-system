@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import semesterAccess from "../../../netlify/functions/lib/semester-access.cjs";
+import operatorAccess from "../../../netlify/functions/lib/operator-access.cjs";
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_MAX_MS = 12 * 60 * 60 * 1000;
@@ -149,11 +150,7 @@ async function login(context, supabase) {
     return json(400, { status: "error", message: "PC lab tidak valid" });
   }
 
-  const { data: student, error: studentError } = await supabase
-    .from("students")
-    .select("nim, nama, aktif")
-    .eq("nim", nim)
-    .single();
+  const { data: student, error: studentError } = await operatorAccess.lookupStudent(supabase, nim);
   if (studentError || !student) {
     return json(404, { status: "error", message: "NIM tidak terdaftar" });
   }
@@ -161,7 +158,7 @@ async function login(context, supabase) {
     return json(403, { status: "error", message: "Akun mahasiswa tidak aktif" });
   }
 
-  if (!await semesterAccess.hasCurrentEnrollment(supabase, nim)) {
+  if (!operatorAccess.isOperator(nim) && !await semesterAccess.hasCurrentEnrollment(supabase, nim)) {
     return json(403, {
       status: "error",
       message: "NIM belum terdaftar pada periode semester yang sedang berlaku atau booking hari ini. Hubungi laboran untuk memperbarui daftar peserta."
@@ -220,7 +217,7 @@ async function login(context, supabase) {
     });
   if (sessionError) throw sessionError;
 
-  await supabase.from("login_logs").insert({
+  if (!operatorAccess.isOperator(nim)) await supabase.from("login_logs").insert({
     nim: student.nim,
     nama: student.nama,
     aksi: "login",
@@ -273,7 +270,7 @@ async function logout(context, supabase) {
       .update({ last_seen: new Date().toISOString(), status: "online" })
       .eq("device_id", deviceId);
   }
-  await supabase.from("login_logs").insert({
+  if (!operatorAccess.isOperator(nim)) await supabase.from("login_logs").insert({
     nim,
     nama,
     aksi: "logout",
@@ -461,7 +458,7 @@ async function setDevicesMode(supabase, devices, enabled) {
   if (deleteResult.error) throw deleteResult.error;
 
   if (!enabled) {
-    const logoutLogs = (previousResult.data || []).map(previous => ({
+    const logoutLogs = (previousResult.data || []).filter(previous => !operatorAccess.isOperator(previous.nim)).map(previous => ({
         nim: previous.nim,
         nama: previous.student_name || "Akses Tanpa NIM",
         aksi: "logout-admin",
