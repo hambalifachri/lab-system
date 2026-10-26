@@ -1,0 +1,15 @@
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const source = fs.readFileSync('windows/lab-login.ahk','utf8');
+assert(source.indexOf('SetLoginScreen(true)') < source.indexOf('SelectWorkingHost()'));
+assert(source.indexOf('if HasCliArgument("--validate")') < source.indexOf('SetLoginScreen(true)'));
+assert(source.includes('Loop MonitorGetCount()'));
+assert(source.includes('SetTimer EnforceLoginForeground, 250'));
+const guard = source.slice(source.indexOf('EnforceLoginForeground() {'),source.indexOf('StopLoginGuard() {'));
+assert(!/curl|https:|RunWait|ProcessClose|WinClose/.test(guard));
+assert(guard.includes('WinActivate'));
+assert(guard.includes('WinRestore'));
+assert(source.includes('SetTimer EnforceLoginForeground, 0'));
+assert(source.includes('shield.Destroy()'));
+assert(source.indexOf('if RegExMatch(statusJson,') < source.indexOf('if InStr(statusJson, Chr(34) "logged_in"'));
+console.log('PASS static guard checks: startup order, all monitors, local-only focus, cleanup, emergency rejection');

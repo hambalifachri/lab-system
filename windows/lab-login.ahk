@@ -21,6 +21,9 @@ global KioskBrowserPid := 0
 global IsLabLoggedIn := false
 global IsTaskbarHidden := false
 global RequireFreshLogin := IsStartupLaunch()
+global LoginShields := []
+global GuardedLoginHwnd := 0
+global LoginGuardEnabled := false
 
 ; Kunci shortcut umum hanya sebelum login. Ctrl+Alt+Del tidak dapat diblokir
 ; oleh aplikasi Windows biasa, sehingga akun mahasiswa tetap harus Standard User.
@@ -44,12 +47,14 @@ if (BrowserPath = "") {
     ExitApp
 }
 
+; Pengunci lokal harus tampil SEBELUM pemeriksaan jaringan yang bisa lambat.
+CreateLogoutButton()
+SetLoginScreen(true)
+OnExit(CleanupLoginGuard)
 SelectWorkingHost()
 EnsureStartup()
 if RequireFreshLogin
-    ResetSessionOnStartup()
-CreateLogoutButton()
-SetLoginScreen(true)
+    RequireFreshLogin := !ResetSessionOnStartup()
 OpenLogin()
 SetTimer CheckLoginStatus, LoginCheckIntervalMs
 
@@ -145,20 +150,26 @@ ResetSessionOnStartup() {
     global LabBaseUrl, PcName
     quote := Chr(34)
     payloadFile := A_Temp "\lab-startup-payload-" PcName ".json"
+    resultFile := A_Temp "\lab-startup-result-" PcName ".json"
     payload := "{" quote "device_id" quote ":" quote PcName quote
         . "," quote "force_device" quote ":true}"
     try {
         if FileExist(payloadFile)
             FileDelete payloadFile
+        if FileExist(resultFile)
+            FileDelete resultFile
         FileAppend payload, payloadFile, "UTF-8-RAW"
         logoutUrl := RTrim(LabBaseUrl, "/") "/.netlify/functions/logout"
         curlPath := A_WinDir "\System32\curl.exe"
         command := quote curlPath quote
             . " -sS --retry 3 --retry-all-errors --retry-delay 2 --connect-timeout 5 --max-time 20"
             . " -X POST -H " quote "Content-Type: application/json" quote
-            . " --data-binary " quote "@" payloadFile quote " " quote logoutUrl quote
-        RunWait command, , "Hide"
+            . " --data-binary " quote "@" payloadFile quote " -o " quote resultFile quote " " quote logoutUrl quote
+        code := RunWait(command, , "Hide")
+        return code = 0 && FileExist(resultFile)
+            && RegExMatch(FileRead(resultFile), '^\s*\{\s*"status"\s*:\s*"success"\s*[,}]')
     }
+    return false
 }
 
 CreateLogoutButton() {
@@ -278,15 +289,19 @@ CheckLoginStatusCore() {
             }
             throw Error("Host login tidak tersedia")
         }
+        ; Gangguan database bukan izin login bagi pengguna yang belum login.
+        if RegExMatch(statusJson, '"emergency_access"\s*:\s*true')
+            throw Error("Server sedang dalam mode darurat. Hubungi laboran.")
         if InStr(statusJson, Chr(34) "logged_in" Chr(34) ":true") {
             ; Saat boot, abaikan status lama sampai server pernah mengonfirmasi
             ; bahwa sesi sebelumnya benar-benar sudah terhapus.
             if RequireFreshLogin {
-                ResetSessionOnStartup()
+                RequireFreshLogin := !ResetSessionOnStartup()
                 IsLabLoggedIn := false
                 SetLoginScreen(true)
                 if !IsLoginBrowserOpen()
                     OpenLogin()
+                SetTimer CheckLoginStatus, LoginCheckIntervalMs
                 return
             }
             IsLabLoggedIn := true
@@ -350,6 +365,10 @@ CloseLoginBrowser() {
 SetLoginScreen(isLoginScreen) {
     global IsTaskbarHidden
     if isLoginScreen
+        StartLoginGuard()
+    else
+        StopLoginGuard()
+    if isLoginScreen
         HideLogoutButton()
     else
         ShowLogoutButton()
@@ -366,6 +385,118 @@ SetLoginScreen(isLoginScreen) {
     } else {
         ShowTaskbar()
     }
+}
+
+StartLoginGuard() {
+    global LoginGuardEnabled, LoginShields
+    if LoginGuardEnabled
+        return
+    LoginGuardEnabled := true
+    Loop MonitorGetCount() {
+        MonitorGet(A_Index, &left, &top, &right, &bottom)
+        shield := Gui("+AlwaysOnTop -Caption +ToolWindow", "Pengunci Login Lab")
+        shield.BackColor := "0F172A"
+        shield.SetFont("s20 cFFFFFF", "Segoe UI")
+        shield.AddText("x40 y70 w" Max(200, right-left-80), "Silakan login untuk menggunakan komputer.")
+        shield.SetFont("s12 cCBD5E1", "Segoe UI")
+        shield.AddText("x40 y140 w" Max(200, right-left-80), "Menyiapkan halaman login. Jika koneksi bermasalah, hubungi laboran.")
+        shield.OnEvent("Close", (*) => 1)
+        shield.Show("NA x" left " y" top " w" (right-left) " h" (bottom-top))
+        LoginShields.Push(shield)
+    }
+    ; Hanya mengatur jendela lokal. Tidak mengirim request ke server.
+    SetTimer EnforceLoginForeground, 250
+    EnforceLoginForeground()
+}
+
+FindLoginWindow() {
+    global KioskBrowserPid
+    for exe in ["msedge.exe", "chrome.exe"] {
+        for hwnd in WinGetList("ahk_exe " exe) {
+            try {
+                if (WinGetClass("ahk_id " hwnd) != "Chrome_WidgetWin_1")
+                    continue
+                ; PID kiosk khusus, bukan seluruh jendela browser mahasiswa.
+                if (KioskBrowserPid && WinGetPID("ahk_id " hwnd) = KioskBrowserPid)
+                    return hwnd
+                if InStr(WinGetTitle("ahk_id " hwnd), "Login Lab Komputer")
+                    return hwnd
+            }
+        }
+    }
+    return 0
+}
+
+EnforceLoginForeground() {
+    global LoginGuardEnabled, LoginShields, GuardedLoginHwnd
+    if !LoginGuardEnabled
+        return
+    try {
+        ; Jangan menutup konfirmasi logout atau pesan kesalahan aplikasi ini.
+        active := WinExist("A")
+        if active && WinGetPID("ahk_id " active) = ProcessExist()
+            if WinGetClass("ahk_id " active) = "#32770"
+                return
+        hwnd := FindLoginWindow()
+        target := hwnd ? hwnd : (LoginShields.Length ? LoginShields[1].Hwnd : 0)
+        if !target
+            return
+        if !WinActive("ahk_id " target) {
+            ; Angkat penutup di semua monitor, lalu halaman login di atasnya.
+            for shield in LoginShields
+                WinSetAlwaysOnTop(1, "ahk_id " shield.Hwnd)
+            if hwnd && WinGetMinMax("ahk_id " hwnd) = -1
+                WinRestore("ahk_id " hwnd)
+            WinSetAlwaysOnTop(1, "ahk_id " target)
+            WinActivate("ahk_id " target)
+        }
+        if hwnd {
+            GuardedLoginHwnd := hwnd
+            WinSetAlwaysOnTop(1, "ahk_id " hwnd)
+            DetectSuccessfulLogin(hwnd)
+        }
+    }
+}
+
+DetectSuccessfulLogin(hwnd) {
+    global PcName
+    static lastWindow := 0, attempts := 0, lastCheck := 0
+    marker := "Login Lab Komputer - LOGIN_OK - " PcName
+    if !InStr(WinGetTitle("ahk_id " hwnd), marker) {
+        lastWindow := 0
+        attempts := 0
+        return
+    }
+    if lastWindow != hwnd {
+        lastWindow := hwnd
+        attempts := 0
+        lastCheck := 0
+    }
+    ; Maksimal 3 verifikasi cepat per tampilan sukses, bukan polling cepat saat idle.
+    ; Judul ini hanya pemicu, TIDAK pernah menjadi izin membuka desktop.
+    if attempts < 3 && (attempts = 0 || A_TickCount-lastCheck >= 5000) {
+        attempts += 1
+        lastCheck := A_TickCount
+        SetTimer CheckLoginStatus, -1
+    }
+}
+
+StopLoginGuard() {
+    global LoginGuardEnabled, LoginShields, GuardedLoginHwnd
+    LoginGuardEnabled := false
+    SetTimer EnforceLoginForeground, 0
+    if GuardedLoginHwnd {
+        try WinSetAlwaysOnTop(0, "ahk_id " GuardedLoginHwnd)
+    }
+    GuardedLoginHwnd := 0
+    for shield in LoginShields
+        try shield.Destroy()
+    LoginShields := []
+}
+
+CleanupLoginGuard(*) {
+    StopLoginGuard()
+    ShowTaskbar()
 }
 
 ShowTaskbar() {

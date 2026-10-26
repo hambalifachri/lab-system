@@ -299,6 +299,8 @@
 
           sendHeartbeat();
           heartbeatTimer = setInterval(sendHeartbeat, 30000);
+          // Local notification only. The Windows client still verifies the server session.
+          document.title = 'Login Lab Komputer - LOGIN_OK - ' + pcName;
 
           document.getElementById("app").innerHTML = `
             <div class="success-card">
